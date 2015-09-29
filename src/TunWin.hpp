@@ -41,14 +41,24 @@ class TunWin : public TunInterface {
 
 		HANDLE handle; /**< handle of tun interface */
 		std::string devGuid; /**< guid of tun interface */
+		ULONG ipApiContext; /**< NTE context returned by AddIpAddress */
 		uint8_t ipPostfix; /**< acutall ip postfix, 255 if no ip is set */
-		uint8_t readBuffer[65535 + 40]; //Max length of an IP packet
-		DWORD bytesRead;
-		ReadState readState;
-		OVERLAPPED overlappedRead;
-		std::list<OVERLAPPED> overlappedWrite;
+		uint8_t readBuffer[65535 + 40]; /**< buffer for data read from tun */
+		// 65535+40 == max length of an IP packet
+		DWORD bytesRead; /**< bytes in readBuffer if readState==ReadState::Ready */
+		ReadState readState; /**< State we are in */
+		OVERLAPPED overlappedRead; /**< for reading async */
+		std::list<OVERLAPPED> overlappedWrite; /**< for writeing async */
+		bool ipIsSet; /**< wether or not the IP was set successfully */
 
+		/**
+		 * Queues a new async read
+		 */
 		void queueRead();
+
+		/**
+		 * Sets bytesRead, using the info from overlappedRead
+		 */
 		void setBytesRead();
 
 	public:

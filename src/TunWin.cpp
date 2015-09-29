@@ -24,21 +24,20 @@
 
 #include <iphlpapi.h>
 #include <winioctl.h>
-#include <windows.h>
 
 TunWin::TunWin() 
 :
 	handle(INVALID_HANDLE_VALUE),
 	ipPostfix(255),
 	bytesRead(0),
-	readState(ReadState::Idle)
+	readState(ReadState::Idle),
+	ipIsSet(false)
 {
 	constexpr char ADAPTER_KEY[] = "SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}";
 	HKEY adapterKey;
 	LONG status;
 	DWORD len;
 	std::list<std::string> devGuids;
-	struct tap_reg *reg = nullptr;
 	size_t i = 0;
 
 	status = RegOpenKeyEx(
@@ -182,46 +181,6 @@ void TunWin::setIp(const uint8_t postfix) {
 	uint32_t ip = 0x0a000000 + postfix;
 	uint32_t netmask = 0xFFFFFF00;
 
-	/*
-	uint32_t ep[3];
-	ep[0] = htonl(ip);
-	ep[1] = htonl(0x0a000000);
-	ep[2] = htonl(0xFFFFFF00);
-
-	DWORD TAP_WIN_IOCTL_CONFIG_TUN = CTL_CODE(
-			FILE_DEVICE_UNKNOWN,
-			10,
-			METHOD_BUFFERED,
-			FILE_ANY_ACCESS
-	);
-
-	ep[0] = htonl(ip);
-	ep[1] = htonl(0xFFFFFF00);
-
-	DWORD TAP_WIN_IOCTL_CONFIG_POINT_TO_POINT = CTL_CODE(
-			FILE_DEVICE_UNKNOWN,
-			5,
-			METHOD_BUFFERED,
-			FILE_ANY_ACCESS
-	);
-
-	status = DeviceIoControl(
-			handle, 
-			TAP_WIN_IOCTL_CONFIG_TUN,
-			ep,
-			sizeof(ep),
-			ep,
-			sizeof(ep),
-			&len,
-			nullptr
-	);
-
-	if (!status) {
-		Logger::error("Failed to set tun device to tun mode");
-		throw 0;
-	}
-	*/
-
 	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
 			FILE_DEVICE_UNKNOWN,
 			6,
@@ -258,13 +217,13 @@ void TunWin::setIp(const uint8_t postfix) {
 	if (status != NO_ERROR) {
 		Logger::error("Can't get Adapter index. Pleas set IP to 10.0.0.", (int)postfix, "manually");
 	} else {
-		ULONG NTEContext, NTEInstance;
+		ULONG NTEInstance;
 
 		status = AddIPAddress(
 				htonl(ip),
 				htonl(netmask),
 				index,
-				&NTEContext,
+				&ipApiContext,
 				&NTEInstance
 		);
 
@@ -272,6 +231,7 @@ void TunWin::setIp(const uint8_t postfix) {
 			Logger::error("Can't set IP to 10.0.0.", (int)postfix, ". Please do so manually");
 		} else {
 			Logger::debug("Set IP to 10.0.0.", (int)postfix);
+			ipIsSet = true;
 		}
 	}
 
@@ -281,6 +241,14 @@ void TunWin::setIp(const uint8_t postfix) {
 void TunWin::unsetIp() {
 	DWORD status;
 	DWORD len;
+
+	if (ipIsSet) {
+		status = DeleteIPAddress(ipApiContext);
+		if (status != NO_ERROR) {
+			Logger::error("Can't remove IPv4 from tun device");
+		}
+		ipIsSet = false;
+	}
 
 	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
 			FILE_DEVICE_UNKNOWN,
@@ -325,6 +293,9 @@ bool TunWin::dataPending() {
 			return (readState == ReadState::Ready);
 		case ReadState::Ready:
 			return true;
+		default:
+			Logger::error("Unhandled state in TunWin::dataPending");
+			throw(Error(Error::Err::Critical));
 	}
 }
 
