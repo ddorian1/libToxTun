@@ -19,6 +19,8 @@
 #include "Logger.hpp"
 #include "Error.hpp"
 
+#include <tox/tox.h>
+
 Data::Data(size_t len) 
 :
 	data(len),
@@ -33,31 +35,40 @@ Data Data::fromToxData(const uint8_t *buffer, size_t len) {
 	return data;
 }
 
-Data Data::fromToxData(const std::list<Data> &fragments) {
-	size_t len = 1;
-	for (const auto &f : fragments) len += f.data.size() - 1;
+Data Data::fromFragments(std::list<Data> &fragments) {
+	size_t len = 0;
+	for (const auto &f : fragments) len += f.data.size() - 4;
 
 	Data data(len);
 
-	size_t pos = 1;
+	fragments.sort(
+			[](const Data &d1, const Data &d2) {
+				return (d1.data[2] < d2.data[2]);
+			}
+	);
+
+	size_t pos = 0;
+	size_t i = 0;
 	for (const auto &f : fragments) {
-		memcpy(&(data.data[pos]), &(f.data[1]), f.data.size()-1);
-		pos += f.data.size()-1;
+		if (i != f.data[2]) {
+			Logger::debug("Ignoring corrupted fragmented package");
+			throw Error(Error::Err::Temp);
+		}
+		++i;
+
+		memcpy(&data.data[pos], &f.data[4], f.data.size() - 4);
+		pos += f.data.size() - 4;
 	}
 
-	data.setToxHeader(PacketId::DataEnd);
+	data.toxHeaderSet = true;
 
 	return data;
 }
 
-Data Data::fromTunData(const uint8_t *buffer, size_t len, bool fragment) {
+Data Data::fromTunData(const uint8_t *buffer, size_t len) {
 	Data data(len + 1);
 	memcpy(&(data.data[1]), buffer, len);
-	if (fragment) {
-		data.setToxHeader(PacketId::DataFrag);
-	} else {
-		data.setToxHeader(PacketId::DataEnd);
-	}
+	data.setToxHeader(PacketId::Data);
 	
 	return data;
 }
@@ -126,3 +137,62 @@ uint8_t Data::getIpPostfix() const {
 
 	return data[1];
 }
+
+std::forward_list<Data> Data::getSplitted() const {
+	size_t pos = 0;
+	size_t fragmentIndex = 0;
+	std::forward_list<Data> dataList;
+
+	while (pos < data.size()) {
+		size_t toCpy = (data.size() - pos < TOX_MAX_CUSTOM_PACKET_SIZE - 4) ?
+			data.size() - pos : TOX_MAX_CUSTOM_PACKET_SIZE - 4;
+
+		Data tmp = Data(toCpy+4);
+		tmp.setToxHeader(PacketId::Fragment);
+		tmp.data[1] = splittedDataIndex;
+		tmp.data[2] = fragmentIndex;
+		memcpy(&tmp.data[4], &data[pos], toCpy);
+
+		pos += toCpy;
+		++fragmentIndex;
+
+		dataList.push_front(std::move(tmp));
+	}
+
+	for(auto &f : dataList) f.data[3] = fragmentIndex;
+
+	splittedDataIndex = (splittedDataIndex == 255) ?
+		0 : (splittedDataIndex + 1);
+
+	return dataList;
+}
+
+Data::SendTox Data::getSendTox() const {
+	const uint8_t h = static_cast<uint8_t>(getToxHeader());
+	if (200 <= h && 254 >= h) {
+		return SendTox::Lossy;
+	} else if (160 <= h && 191 >= h) {
+		return SendTox::Lossless;
+	} else {
+		Logger::error("Called Data::getSendTox, but toxHeader not in range");
+		throw(Error(Error::Err::Critical));
+	}
+}
+
+uint8_t Data::getSplittedDataIndex() const {
+	if (getToxHeader() != PacketId::Fragment) {
+		Logger::error("Trying to get SplittedDataIndex from a non fragment");
+		throw(Error(Error::Err::Critical));
+	}
+	return data.at(1);
+}
+
+uint8_t Data::getFragmentsCount() const {
+	if (getToxHeader() != PacketId::Fragment) {
+		Logger::error("Trying to get fragmentsCount from a non fragment");
+		throw(Error(Error::Err::Critical));
+	}
+	return data.at(3);
+}
+
+uint8_t Data::splittedDataIndex = 0;

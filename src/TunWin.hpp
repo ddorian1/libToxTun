@@ -43,8 +43,8 @@ class TunWin : public TunInterface {
 		std::string devGuid; /**< guid of tun interface */
 		ULONG ipApiContext; /**< NTE context returned by AddIpAddress */
 		uint8_t ipPostfix; /**< acutall ip postfix, 255 if no ip is set */
-		uint8_t readBuffer[65535 + 40]; /**< buffer for data read from tun */
-		// 65535+40 == max length of an IP packet
+		uint8_t readBuffer[1500 + 18]; /**< buffer for data read from tun */
+		// 1500+18 == max length of an ethernet frame
 		DWORD bytesRead; /**< bytes in readBuffer if readState==ReadState::Ready */
 		ReadState readState; /**< State we are in */
 		OVERLAPPED overlappedRead; /**< for reading async */

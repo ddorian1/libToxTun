@@ -48,7 +48,7 @@ TunUnix::TunUnix()
 
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
-	if (ioctl(fd, TUNSETIFF, reinterpret_cast<void *>(&ifr)) < 0) {
+	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
 		const char *errStr = std::strerror(errno);
 		Logger::error("ioctl failed: ", errStr);
 		close(fd);
@@ -91,6 +91,12 @@ void TunUnix::setIp(const uint8_t postfix) {
 		const char *errStr = std::strerror(errno);
 		Logger::error("Setting netmask with ioctl failed: ", errStr);
 		Logger::error("Please set netmask to 255.255.255.0 manually");
+	}
+
+	ifr.ifr_mtu = TOX_MAX_CUSTOM_PACKET_SIZE - 18 - 1;
+	if (ioctl(fd, SIOCSIFMTU, &ifr) < 0) {
+		const char *errStr = std::strerror(errno);
+		Logger::debug("Can't set MTU: ", errStr);
 	}
 
 	if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
@@ -155,7 +161,7 @@ bool TunUnix::dataPending() {
 }
 
 Data TunUnix::getData() {
-	constexpr size_t bufferSize = 65535 + 40; //Max length of an IP packet
+	constexpr size_t bufferSize = 1500 + 18; //Max length of an ethernet frame
 	uint8_t buffer[bufferSize];
 
 	int n = read(fd, buffer, bufferSize);
@@ -170,11 +176,6 @@ Data TunUnix::getData() {
 }
 
 void TunUnix::sendData(const Data &data) {
-	if (data.getIpDataLen() == 0) {
-		Logger::debug("Dropping empty data");
-		return;
-	}
-
 	int n = write(fd, data.getIpData(), data.getIpDataLen());
 	if (n < 0) {
 		const char *errStr = std::strerror(errno);

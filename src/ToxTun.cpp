@@ -31,7 +31,13 @@ ToxTun::ToxTun(Tox *tox)
 {
 	tox_callback_friend_lossless_packet(
 			tox,
-			losslessPacketCallback,
+			toxPacketCallback,
+			reinterpret_cast<void *>(this)
+	);
+
+	tox_callback_friend_lossy_packet(
+			tox,
+			toxPacketCallback,
 			reinterpret_cast<void *>(this)
 	);
 }
@@ -70,7 +76,7 @@ ToxTun* ToxTun::newToxTunNoExp(Tox *tox) {
 	return t;
 }
 
-void ToxTun::losslessPacketCallback(
+void ToxTun::toxPacketCallback(
 		Tox *tox, uint32_t friendNumber,
 		const uint8_t *dataRaw,
 		size_t length,
@@ -80,35 +86,38 @@ void ToxTun::losslessPacketCallback(
 
 	try {
 		Data data(Data::fromToxData(dataRaw, length));
-
-		switch(data.getToxHeader()) {
-			case Data::PacketId::ConnectionRequest:
-				toxTun->handleConnectionRequest(friendNumber);
-				break;
-			case Data::PacketId::ConnectionAccept:
-				toxTun->handleConnectionAccepted(friendNumber);
-				break;
-			case Data::PacketId::ConnectionReject:
-				toxTun->handleConnectionRejected(friendNumber);
-				break;
-			case Data::PacketId::ConnectionClose:
-				toxTun->handleConnectionClosed(friendNumber);
-				break;
-			case Data::PacketId::ConnectionReset:
-				toxTun->handleConnectionReset(friendNumber);
-				break;
-			case Data::PacketId::IP:
-				toxTun->setIp(data, friendNumber);
-				break;
-			case Data::PacketId::DataFrag:
-				toxTun->sendToTun(data, friendNumber, true);
-				break;
-			case Data::PacketId::DataEnd:
-				toxTun->sendToTun(data, friendNumber);
-				break;
-		}
+		toxTun->handleData(data, friendNumber);
 	} catch (Error &error) {
 		toxTun->handleError(error);
+	}
+}
+
+void ToxTun::handleData(const Data &data, uint32_t friendNumber) {
+	switch(data.getToxHeader()) {
+		case Data::PacketId::ConnectionRequest:
+			handleConnectionRequest(friendNumber);
+			break;
+		case Data::PacketId::ConnectionAccept:
+			handleConnectionAccepted(friendNumber);
+			break;
+		case Data::PacketId::ConnectionReject:
+			handleConnectionRejected(friendNumber);
+			break;
+		case Data::PacketId::ConnectionClose:
+			handleConnectionClosed(friendNumber);
+			break;
+		case Data::PacketId::ConnectionReset:
+			handleConnectionReset(friendNumber);
+			break;
+		case Data::PacketId::IP:
+			setIp(data, friendNumber);
+			break;
+		case Data::PacketId::Data:
+			sendToTun(data, friendNumber);
+			break;
+		case Data::PacketId::Fragment:
+			handleFragment(data, friendNumber);
+			break;
 	}
 }
 
@@ -162,6 +171,7 @@ void ToxTun::resetConnection(uint32_t friendNumber) {
 		);
 		if (state == State::Connected) tun.unsetIp();
 		state = State::Idle;
+		fragments.clear();
 	}
 
 	Data data(Data::fromPacketId(Data::PacketId::ConnectionReset));
@@ -239,6 +249,7 @@ void ToxTun::handleConnectionClosed(uint32_t friendNumber) {
 
 	Logger::debug("Closing connection to ", friendNumber);
 	tun.unsetIp();
+	fragments.clear();
 	state = State::Idle;
 }
 
@@ -246,6 +257,7 @@ void ToxTun::handleConnectionReset(uint32_t friendNumber) {
 	Logger::debug("ConnectionReset received from ", friendNumber);
 	if (state != State::Idle && connectedFriend == friendNumber) {
 		state = State::Idle;
+		fragments.clear();
 		//TODO Maybe make this a different event
 		callbackFunction(
 				Event::ConnectionClosed,
@@ -270,58 +282,58 @@ void ToxTun::setIp(const Data &data, uint32_t friendNumber) {
 	Logger::debug("Ip set with postfix ", static_cast<int>(postfix));
 }
 
-void ToxTun::sendToTun(const Data &data, uint32_t friendNumber, bool fragment) {
-	if (fragment) {
-		dataFragments.push_back(data);
-		Logger::debug("Receving fragmented data packet");
-	} else {
-		if (!dataFragments.empty()) {
-			Logger::debug("Fragmented data packet Received");
-
-			dataFragments.push_back(data);
-			Data tmpData = Data::fromToxData(dataFragments);
-			tun.sendData(tmpData);
-			dataFragments.clear();
-		} else
-			tun.sendData(data);
+void ToxTun::sendToTun(const Data &data, uint32_t friendNumber) {
+	if (state != State::Connected || friendNumber != connectedFriend) {
+		Logger::error("Received data package from not connected friend");
+		resetConnection(friendNumber);
+		throw (Error(Error::Err::Temp));
 	}
+	tun.sendData(data);
 }
 
 void ToxTun::sendToTox(const Data &data, uint32_t friendNumber) const {
-	std::list<Data> dataList;
+	std::forward_list<Data> dataList;
 
 	if (data.getToxDataLen() <= TOX_MAX_CUSTOM_PACKET_SIZE) {
-		dataList.push_back(data);
+		dataList.push_front(data);
 	} else {
 		Logger::debug("Packet to big for tox, splitting it");
-
-		size_t len = data.getIpDataLen();
-		uint8_t buf[TOX_MAX_CUSTOM_PACKET_SIZE];
-		size_t pos = 0;
-
-		while (pos < len) {
-			size_t toCpy = (len - pos < TOX_MAX_CUSTOM_PACKET_SIZE - 1) ?
-				len - pos : TOX_MAX_CUSTOM_PACKET_SIZE - 1;
-			memcpy(buf, &(data.getIpData()[pos]), toCpy);
-			pos += toCpy;
-
-			Data tmp = Data::fromTunData(buf, toCpy, pos != len);
-			dataList.push_back(tmp);
-		}
+		dataList = std::move(data.getSplitted());
 	}
 
+	bool status;
 	for (const auto &d : dataList) {
-		bool ok = tox_friend_send_lossless_packet(
-				tox,
-				friendNumber,
-				d.getToxData(),
-				d.getToxDataLen(),
-				NULL
-		);
+		switch (d.getSendTox()) {
+			case Data::SendTox::Lossless:
+				Logger::debug("Sending lossless packet to ", friendNumber);
+				status = tox_friend_send_lossless_packet(
+						tox,
+						friendNumber,
+						d.getToxData(),
+						d.getToxDataLen(),
+						NULL
+				);
 
-		if (!ok) {
-			Logger::error("Can't send lossless packet to ", friendNumber);
-			throw Error(Error::Err::Temp);
+				if (!status) {
+					Logger::error("Can't send lossless packet to ", friendNumber);
+					throw Error(Error::Err::Temp);
+				}
+				break;
+			case Data::SendTox::Lossy:
+				Logger::debug("Sending lossy packet to ", friendNumber);
+				status = tox_friend_send_lossy_packet(
+						tox,
+						friendNumber,
+						d.getToxData(),
+						d.getToxDataLen(),
+						NULL
+				);
+
+				if (!status) {
+					Logger::error("Can't send lossy packet to ", friendNumber);
+					throw Error(Error::Err::Temp);
+				}
+				break;
 		}
 	}
 }
@@ -371,7 +383,35 @@ void ToxTun::closeConnection() {
 	}
 
 	state = State::Idle;
+	fragments.clear();
 	Logger::debug("Closing connection to ", connectedFriend);
+}
+
+void ToxTun::handleFragment(const Data &data, uint32_t friendNumber) {
+	const uint8_t sdi = data.getSplittedDataIndex();
+
+	if (!fragments.count(friendNumber)) {
+		std::list<Data> l = {data};
+		std::pair<uint8_t, std::list<Data> > p(sdi, std::move(l));
+		std::map<uint8_t, std::list<Data> > m = {std::move(p)};
+		fragments.emplace(std::make_pair(friendNumber, std::move(m)));
+	} else if (!fragments.at(friendNumber).count(sdi)) {
+		std::list<Data> l = {data};
+		fragments.at(friendNumber).emplace(std::make_pair(sdi, std::move(l)));
+	} else {
+		fragments.at(friendNumber).at(sdi).push_front(data);
+	}
+
+	if (fragments.at(friendNumber).at(sdi).size() == data.getFragmentsCount()) {
+		std::list<Data> tmp(std::move(fragments.at(friendNumber).at(sdi)));
+		fragments.at(friendNumber).erase(sdi);
+
+		for (size_t i=sdi+128u;i<sdi+128u+3u;++i)
+			fragments.at(friendNumber).erase(i%256);
+
+		handleData(Data::fromFragments(tmp), friendNumber);
+		Logger::debug("fragments[", friendNumber, "].size() == ", fragments.at(friendNumber).size());
+	}
 }
 
 void ToxTun::handleError(Error &error, bool sensitiv) {

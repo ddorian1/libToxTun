@@ -82,6 +82,11 @@ class ToxTun {
 		State state; /**< Current state */
 
 		/**
+		 * Fragments of jet incomplete received packages.
+		 */
+		std::map<uint32_t, std::map<uint8_t, std::list<Data> > > fragments;
+
+		/**
 		 * User Data to be returned by the callback function
 		 */
 		void *callbackUserData;
@@ -98,14 +103,9 @@ class ToxTun {
 		uint32_t connectedFriend; 
 
 		/**
-		 * Reveived and jet incomplete fragments of IP Packets
-		 */
-		std::list<Data> dataFragments;
-
-		/**
 		 * Callback function to be registered to tox
 		 */
-		static void losslessPacketCallback(
+		static void toxPacketCallback(
 				Tox *tox, uint32_t friendNumber,
 				const uint8_t *dataRaw,
 				size_t length,
@@ -113,40 +113,51 @@ class ToxTun {
 		);
 
 		/**
-		 * Called by losslessPacketCallback
-		 * \sa losslessPacketCallback
+		 * Handles incoming packats
+		 */
+		void handleData(const Data &data, uint32_t friendNumber);
+
+		/**
+		 * Called by handleData
+		 * \sa handleData
+		 */
+		void handleFragment(const Data &data, uint32_t friendNumber);
+
+		/**
+		 * Called by handleData
+		 * \sa handleData
 		 */
 		void handleConnectionRequest(uint32_t friendNumber);
 
 		/**
-		 * Called by losslessPacketCallback
-		 * \sa losslessPacketCallback
+		 * Called by handleData
+		 * \sa handleData
 		 */
 		void handleConnectionAccepted(uint32_t friendNumber);
 
 		/**
-		 * Called by losslessPacketCallback
-		 * \sa losslessPacketCallback
+		 * Called by handleData
+		 * \sa handleData
 		 */
 		void handleConnectionRejected(uint32_t friendNumber);
 
 		/**
-		 * Called by losslessPacketCallback
-		 * \sa losslessPacketCallback
+		 * Called by handleData
+		 * \sa handleData
 		 */
 		void handleConnectionClosed(uint32_t friendNumber);
 
 		/**
-		 * Called by losslessPacketCallback
-		 * \sa losslessPacketCallback
+		 * Called by handleData
+		 * \sa handleData
 		 */
 		void handleConnectionReset(uint32_t friendNumber);
 
 		/**
-		 * Called by losslessPacketCallback
+		 * Called by handleData
 		 * \param[in] data Data received via tox
 		 * \param[in] friendNumber Sender of the data
-		 * \sa losslessPacketCallback
+		 * \sa handleData
 		 */
 		void setIp(const Data &data, uint32_t friendNumber);
 
@@ -159,7 +170,7 @@ class ToxTun {
 		/**
 		 * Send data via tun interface
 		 */
-		void sendToTun(const Data &data, uint32_t friendNumber, bool fragment=false);
+		void sendToTun(const Data &data, uint32_t friendNumber);
 
 		/**
 		 * Send data to friend via Tox

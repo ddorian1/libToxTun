@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <forward_list>
 #include <list>
 #include <vector>
 
@@ -32,8 +33,8 @@ class Data {
 	public:
 		/**
 		 * The packet identifier for packets send trough tox.
-		 * Since we send only lossless packets at the moment,
-		 * there must be in the range 160-???.
+		 * For lossless packets it must be in range 160-191,
+		 * for lossy packets in 200-254.
 		 */
 		enum class PacketId : uint8_t {
 			ConnectionRequest = 160,
@@ -42,8 +43,16 @@ class Data {
 			ConnectionClose = 163,
 			ConnectionReset = 164,
 			IP = 165,
-			DataFrag = 166,
-			DataEnd = 167
+			Data = 200,
+			Fragment = 201
+		};
+
+		/**
+		 * How to send the packet via tox.
+		 */
+		enum class SendTox {
+			Lossless,
+			Lossy
 		};
 
 	private:
@@ -60,6 +69,11 @@ class Data {
 		bool toxHeaderSet;
 
 		/**
+		 * The index for the next splitted data packet
+		 */
+		static uint8_t splittedDataIndex;
+
+		/**
 		 * Private Constructor.
 		 * Use the static members to create an instance.
 		 */
@@ -70,7 +84,7 @@ class Data {
 		 * Create class from data received via Tun interface.
 		 * len must be the size of buffer.
 		 */
-		static Data fromTunData(const uint8_t *buffer, size_t len, bool fragment=false);
+		static Data fromTunData(const uint8_t *buffer, size_t len);
 
 		/**
 		 * Create class from data received via Tox.
@@ -79,9 +93,9 @@ class Data {
 		static Data fromToxData(const uint8_t *buffer, size_t len);
 
 		/**
-		 * Create call from list of fragments received via Tox
+		 * Create class from list of fragments received via Tox
 		 */
-		static Data fromToxData(const std::list<Data> &fragments);
+		static Data fromFragments(std::list<Data> &fragments);
 
 		/**
 		 * Create class from an ip postfix.
@@ -133,6 +147,26 @@ class Data {
 		 * or is otherwise invalid.
 		 */
 		uint8_t getIpPostfix() const;
+
+		/**
+		 * Gets the set index from a fragment packet.
+		 */
+		uint8_t getSplittedDataIndex() const;
+
+		/**
+		 * Gets the count of fragments in the set from a fragment packet.
+		 */
+		uint8_t getFragmentsCount() const;
+
+		/**
+		 * Gets a list of splitted packegs that fit TOX_MAX_CUSTOM_PACKAGE_SIZE.
+		 */
+		std::forward_list<Data> getSplitted() const;
+
+		/**
+		 * Gets the type of connection the packet must be send over via tox.
+		 */
+		SendTox getSendTox() const;
 };
 
 #endif //DATA_HPP
