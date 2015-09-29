@@ -26,8 +26,8 @@ ToxTun::ToxTun(Tox *tox)
 :
 	tox(tox),
 	state(State::Idle),
-	callbackFunction(nullptr),
-	callbackUserData(nullptr)
+	callbackUserData(nullptr),
+	callbackFunction(nullptr)
 {
 	tox_callback_friend_lossless_packet(
 			tox,
@@ -47,6 +47,7 @@ ToxTun::~ToxTun() {
 				closeConnection();
 				break;
 			case State::Idle:
+			case State::PermanentError:
 				break;
 		}
 	} catch (Error &error) {
@@ -119,8 +120,14 @@ void ToxTun::setCallback(CallbackFunction callback, void *userData) {
 void ToxTun::iterate() {
 	if (state == State::Connected) {
 		try {
-			while (tun.dataPending()) 
+			/* 
+			 * TODO: is 10 a reasonable value?
+			 * Or would a timeout be a better solution?
+			 */
+			for (int i=0;i<10;++i) {
+				if (!tun.dataPending()) break;
 				sendToTox(tun.getData(), connectedFriend);
+			}
 		} catch (Error &error) {
 			handleError(error);
 		}
