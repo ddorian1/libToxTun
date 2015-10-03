@@ -25,10 +25,3 @@ std::string TunInterface::ipv4FromPostfix(const uint8_t postfix) {
 	ip << "10.0.0." << static_cast<int>(postfix);
 	return ip.str();
 }
-
-std::string TunInterface::ipv6FromPostfix(const uint8_t postfix) {
-	std::ostringstream ip;
-
-	ip << "fe80::" << static_cast<int>(postfix);
-	return ip.str();
-}

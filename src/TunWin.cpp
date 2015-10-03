@@ -54,10 +54,6 @@ TunWin::TunWin()
 	}
 
 	while (true) {
-		constexpr char COMPONENT_ID[] = "ComponentId";
-		constexpr char NET_CFG_INSTANCE_ID[] = "NetCfgInstanceId";
-		unsigned char componentId[256];
-		unsigned char netCfgInstanceId[256];
 		char enumName[256];
 		std::string unitString;
 		HKEY unitKey;
@@ -74,6 +70,8 @@ TunWin::TunWin()
 				nullptr,
 				nullptr
 		);
+
+		++i;
 
 		if (status == ERROR_NO_MORE_ITEMS) break;
 
@@ -96,41 +94,49 @@ TunWin::TunWin()
 
 		if (status != ERROR_SUCCESS) {
 			Logger::debug("Can't open registry key ", unitString);
-		} else {
-			len = sizeof(componentId);
-			status = RegQueryValueEx(
-					unitKey,
-					COMPONENT_ID,
-					NULL,
-					&dataType,
-					componentId,
-					&len
-			);
+			continue;
+		}
 
-			if (status != ERROR_SUCCESS || dataType != REG_SZ) {
-				Logger::error("Can't open registry key ",
-						unitString, "\\", COMPONENT_ID);
-			} else {
-				len = sizeof(netCfgInstanceId);
-				status = RegQueryValueEx(
-						unitKey,
-						NET_CFG_INSTANCE_ID,
-						NULL,
-						&dataType,
-						netCfgInstanceId,
-						&len
-				);
+		constexpr char COMPONENT_ID[] = "ComponentId";
+		unsigned char componentId[256];
+		len = sizeof(componentId);
 
-				if (status == ERROR_SUCCESS && dataType == REG_SZ) {
-					if (!strcmp(reinterpret_cast<char*>(componentId), "tap0901")) {
-						devGuids.emplace_back(reinterpret_cast<char*>(netCfgInstanceId));
-					}
-				}
-			
-				RegCloseKey(unitKey);
+		status = RegQueryValueEx(
+				unitKey,
+				COMPONENT_ID,
+				NULL,
+				&dataType,
+				componentId,
+				&len
+		);
+
+		if (status != ERROR_SUCCESS || dataType != REG_SZ) {
+			Logger::debug("Can't open registry key ",
+					unitString, "\\", COMPONENT_ID);
+			RegCloseKey(unitKey);
+			continue;
+		}
+
+		constexpr char NET_CFG_INSTANCE_ID[] = "NetCfgInstanceId";
+		unsigned char netCfgInstanceId[256];
+		len = sizeof(netCfgInstanceId);
+
+		status = RegQueryValueEx(
+				unitKey,
+				NET_CFG_INSTANCE_ID,
+				NULL,
+				&dataType,
+				netCfgInstanceId,
+				&len
+		);
+
+		if (status == ERROR_SUCCESS && dataType == REG_SZ) {
+			if (!strcmp(reinterpret_cast<char*>(componentId), "tap0901")) {
+				devGuids.emplace_back(reinterpret_cast<char*>(netCfgInstanceId));
 			}
 		}
-		++i;
+
+		RegCloseKey(unitKey);
 	}
 
 	RegCloseKey(adapterKey);
@@ -161,7 +167,7 @@ TunWin::TunWin()
 			break;
 		}
 
-		Logger::error("Can't open tun device file ", devPath);
+		Logger::debug("Can't open tun device file ", devPath);
 	}
 
 	if (handle == INVALID_HANDLE_VALUE) {
@@ -205,18 +211,8 @@ void TunWin::setIp(const uint8_t postfix) {
 		throw Error(Error::Err::Critical);
 	}
 
-	ULONG index;
-	std::wstring adapterName = L"\\DEVICE\\TCPIP_";
-	for (const auto &c : devGuid) adapterName += c;
-
-	status = GetAdapterIndex(
-			const_cast<wchar_t*>(adapterName.c_str()),
-			&index
-	);
-
-	if (status != NO_ERROR) {
-		Logger::error("Can't get Adapter index. Pleas set IP to 10.0.0.", (int)postfix, "manually");
-	} else {
+	try {
+		DWORD index = getAdapterIndex();
 		ULONG NTEInstance;
 
 		status = AddIPAddress(
@@ -227,15 +223,63 @@ void TunWin::setIp(const uint8_t postfix) {
 				&NTEInstance
 		);
 
-		if (status != NO_ERROR) {
-			Logger::error("Can't set IP to 10.0.0.", (int)postfix, ". Please do so manually");
-		} else {
-			Logger::debug("Set IP to 10.0.0.", (int)postfix);
-			ipIsSet = true;
-		}
+		if (status != NO_ERROR) throw Error(Error::Err::Temp);
+
+		Logger::debug("Set IP to 10.0.0.", (int)postfix);
+		ipIsSet = true;
+	} catch (Error &err) {
+		Logger::error("Can't get Adapter index. Pleas set IP to 10.0.0.", (int)postfix, "manually");
 	}
 
 	Logger::debug("Tun device successfully started");
+}
+
+ULONG TunWin::getAdapterIndex() const {
+	DWORD index, status;
+
+	std::wstring adapterName = L"\\DEVICE\\TCPIP_";
+	for (const auto &c : devGuid) adapterName += c;
+
+	status = GetAdapterIndex(
+			const_cast<wchar_t*>(adapterName.c_str()),
+			&index
+	);
+
+	if (status == NO_ERROR) return index;
+
+	Logger::debug("GetAdapterIndex failed");
+
+	ULONG size = 0;
+	status = GetAdaptersInfo(nullptr, &size);
+	if (status != ERROR_BUFFER_OVERFLOW) {
+		Logger::debug("GetAdapterInfo (size) failed");
+		throw Error(Error::Err::Temp);
+	}
+
+	IP_ADAPTER_INFO *adapterInfo = new IP_ADAPTER_INFO[size];
+	if (!adapterInfo) throw Error(Error::Err::Temp);
+
+	status = GetAdaptersInfo(adapterInfo, &size);
+	if (status != NO_ERROR) {
+		Logger::debug("GetAdapterInfo failed");
+		throw Error(Error::Err::Temp);
+	}
+
+	IP_ADAPTER_INFO *tmp = adapterInfo;
+	while (tmp) {
+		if (devGuid == tmp->AdapterName) break;
+		tmp = tmp->Next;
+	}
+
+	if (tmp != nullptr) {
+		index = tmp->Index;
+		delete[] adapterInfo;
+		return index;
+	}
+
+	Logger::debug("No matching adapter in IP_ADAPTER_INFO");
+	delete[] adapterInfo;
+	throw Error(Error::Err::Temp);
 }
 
 void TunWin::unsetIp() {

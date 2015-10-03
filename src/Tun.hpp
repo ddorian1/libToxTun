@@ -38,13 +38,6 @@ class TunInterface {
 		 */
 		static std::string ipv4FromPostfix(const uint8_t postfix);
 
-		/**
-		 * Generate IPv6 Address from postfix.
-		 * \param[in] postfix postfix to use
-		 * \return string of form "fe80::[postfix]"
-		 */
-		static std::string ipv6FromPostfix(const uint8_t postfix);
-
 	public:
 		/**
 		 * Set IPv4 and IPv6 of tun interface

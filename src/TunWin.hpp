@@ -61,6 +61,12 @@ class TunWin : public TunInterface {
 		 */
 		void setBytesRead();
 
+		/**
+		 * Tries to get index of adapter in use
+		 * Throws Error in case of failure.
+		 */
+		DWORD getAdapterIndex() const;
+
 	public:
 		/**
 		 * Creates the tun interface

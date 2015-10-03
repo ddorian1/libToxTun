@@ -33,7 +33,6 @@ class TunUnix : public TunInterface {
 	private:
 		const int fd; /**< file desctiptor of tun interface */
 		std::string name; /**< name of tun interface */
-		uint8_t ipPostfix; /**< acutall ip postfix, 255 if no ip is set */
 
 	public:
 		/**
