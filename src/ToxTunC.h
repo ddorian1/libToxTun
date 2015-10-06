@@ -20,11 +20,14 @@
 
 /** \file */
 
-#include <tox/tox.h>
-
 #ifdef __cplusplus
+#include <cstdint>
 extern "C" {
+#else
+#include <stdint.h>
 #endif
+
+class Tox;
 
 /**
  * \defgroup C_API C API
@@ -74,31 +77,31 @@ void toxtun_set_callback(
  * Do the work.
  * \sa ToxTun::iterate()
  */
-bool toxtun_iterate(void *toxtun);
+void toxtun_iterate(void *toxtun);
 
 /**
  * Sends a connection request to friend.
  * \sa ToxTun::sendConnectionRequest()
  */
-bool toxtun_send_connection_request(void *toxtun, uint32_t friendNumber);
+void toxtun_send_connection_request(void *toxtun, uint32_t friendNumber);
 
 /**
  * Accept connection request from friend.
  * \sa ToxTun::acceptConnection()
  */
-bool toxtun_accept_connection(void *toxtun, uint32_t friendNumber);
+void toxtun_accept_connection(void *toxtun, uint32_t friendNumber);
 
 /**
  * Reject connection request.
  * \sa ToxTun::rejectConnection()
  */
-bool toxtun_reject_connection(void *toxtun, uint32_t friendNumber);
+void toxtun_reject_connection(void *toxtun, uint32_t friendNumber);
 
 /**
  * Close connection to friend.
  * \sa ToxTun::closeConnection()
  */
-bool toxtun_close_connection(void *toxtun);
+void toxtun_close_connection(void *toxtun);
 
 /**\}*/
 

@@ -52,21 +52,14 @@ static void intermediateCallback(
 }
 
 void *toxtun_new(Tox *tox) {
-	ToxTun *t;
-	try {
-		t = new ToxTun(tox);
-	} catch (...) {
-		return nullptr;
-	}
+	ToxTun *t = ToxTun::newToxTunNoExp(tox);
 	return reinterpret_cast<void *>(t);
 }
 
 void toxtun_kill(void *toxtun) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	try {
-		t->closeConnection();
-		delete t;
-	} catch (...) {}
+	t->closeConnection();
+	delete t;
 }
 
 void toxtun_set_callback(
@@ -83,53 +76,28 @@ void toxtun_set_callback(
 	t->setCallback(intermediateCallback, userData);
 }
 	
-bool toxtun_iterate(void *toxtun) {
+void toxtun_iterate(void *toxtun) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	try {
-		t->iterate();
-	} catch (...) {
-		return false;
-	}
-	return true;
+	t->iterate();
 }
 
 
-bool toxtun_send_connection_request(void *toxtun, uint32_t friendNumber) {
+void toxtun_send_connection_request(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	try {
-		t->sendConnectionRequest(friendNumber);
-	} catch (...) {
-		return false;
-	}
-	return true;
+	t->sendConnectionRequest(friendNumber);
 }
 
-bool toxtun_accept_connection(void *toxtun, uint32_t friendNumber) {
+void toxtun_accept_connection(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	try {
-		t->acceptConnection(friendNumber);
-	} catch (...) {
-		return false;
-	}
-	return true;
+	t->acceptConnection(friendNumber);
 }
 
-bool toxtun_reject_connection(void *toxtun, uint32_t friendNumber) {
+void toxtun_reject_connection(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	try {
-		t->rejectConnection(friendNumber);
-	} catch (...) {
-		return false;
-	}
-	return true;
+	t->rejectConnection(friendNumber);
 }
 
-bool toxtun_close_connection(void *toxtun) {
+void toxtun_close_connection(void *toxtun) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	try {
-		t->closeConnection();
-	} catch (...) {
-		return false;
-	}
-	return true;
+	t->closeConnection();
 }

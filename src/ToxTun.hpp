@@ -20,15 +20,13 @@
 
 /** \file */
 
-#include "Tun.hpp"
+#include <cstdint>
+#include <exception>
+#include <string>
+#include <memory>
 
-#include <list>
-#include <map>
-#include <tox/tox.h>
-#include <vector>
-
-class Error;
-class Data;
+class ToxTunCore;
+class Tox;
 
 /** 
  * \mainpage 
@@ -41,6 +39,10 @@ class Data;
 /** 
  * The main API class.
  * This is the class to instanciate to create a ToxTun instance.
+ * All functions except newToxTun() shouldn't thow an error.
+ * If something goes wrong, the callback function is called with
+ * Event::ConnectionClosed. This will probably change to another
+ * event in the future.
  */
 class ToxTun {
 	public:
@@ -65,149 +67,27 @@ class ToxTun {
 				void *userData
 		);
 
-	private:
-		/**
-		 * Possible States
-		 */
-		enum class State {
-			Idle,
-			RequestPending, 
-			ExpectingIpPacket,
-			Connected,
-			PermanentError
-		};
-
-		Tox *tox; /**< Tox struct passed to ToxTun::ToxTun() */
-		Tun tun; /**< Tun interface */
-		State state; /**< Current state */
-
-		/**
-		 * Fragments of jet incomplete received packages.
-		 */
-		std::map<uint32_t, std::map<uint8_t, std::list<Data> > > fragments;
-
-		/**
-		 * User Data to be returned by the callback function
-		 */
-		void *callbackUserData;
-
-		/**
-		 * Callback function to be called in case of an event
-		 */
-		CallbackFunction callbackFunction;
-
-		/**
-		 * Friend we are connected to.
-		 * The value is unspecified if state == State::Idle.
-		 */
-		uint32_t connectedFriend; 
-
-		/**
-		 * Callback function to be registered to tox
-		 */
-		static void toxPacketCallback(
-				Tox *tox, uint32_t friendNumber,
-				const uint8_t *dataRaw,
-				size_t length,
-				void *ToxTunVoid
-		);
-
-		/**
-		 * Handles incoming packats
-		 */
-		void handleData(const Data &data, uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \sa handleData
-		 */
-		void handleFragment(const Data &data, uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \sa handleData
-		 */
-		void handleConnectionRequest(uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \sa handleData
-		 */
-		void handleConnectionAccepted(uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \sa handleData
-		 */
-		void handleConnectionRejected(uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \sa handleData
-		 */
-		void handleConnectionClosed(uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \sa handleData
-		 */
-		void handleConnectionReset(uint32_t friendNumber);
-
-		/**
-		 * Called by handleData
-		 * \param[in] data Data received via tox
-		 * \param[in] friendNumber Sender of the data
-		 * \sa handleData
-		 */
-		void setIp(const Data &data, uint32_t friendNumber);
-
-		/**
-		 * Resets the connection in case something unexpected happens
-		 * \param[in] friendNumber Friend to whom the connection should be reset
-		 */
-		void resetConnection(uint32_t friendNumber);
-
-		/**
-		 * Send data via tun interface
-		 */
-		void sendToTun(const Data &data, uint32_t friendNumber);
-
-		/**
-		 * Send data to friend via Tox
-		 */
-		void sendToTox(const Data &data, uint32_t friendNumber) const;
-
-		/**
-		 * Handle exceptions
-		 * \param[in] error Instance of Error
-		 * \param[in] sensitiv Wether or not we are in an error sensitiv context
-		 */
-		void handleError(Error &error, bool sensitiv = false);
-
-	public:
-		/**
-		 * Creates the tun interface and registers the callback functions
-		 * to tox.
-		 * \param[in] tox Pointer to Tox
-		 * \sa newToxTunNoExp()
-		 */
-		ToxTun(Tox *tox);
+		ToxTun() = default;
+		virtual ~ToxTun() = default;
 
 		ToxTun(const ToxTun&) = delete; /**< Deleted */
 		ToxTun& operator=(const ToxTun&) = delete; /**< Deleted */
 
 		/**
-		 * Closes the tun interface and unregisters the callback functions
-		 * from tox.
+		 * Creates a new ToxTun class.
+		 * Throws ToxTunError in case of failure.
+		 * \param[in] tox Pointer to Tox
+		 * \return std::shared_ptr to created class
+		 * \sa newToxTunNoExp()
 		 */
-		~ToxTun();
+		static std::shared_ptr<ToxTun> newToxTun(Tox *tox);
 
 		/**
 		 * Creates a new ToxTun class without throwing an exception.
-		 * The caller is responsible to free the memory!
+		 * The caller is responsible for freeing the memory!
 		 * \param[in] tox Pointer to Tox
 		 * \return nullptr in case of error
-		 * \sa ToxTun()
+		 * \sa newToxTun()
 		 */
 		static ToxTun* newToxTunNoExp(Tox *tox);
 
@@ -218,36 +98,48 @@ class ToxTun {
 		 * \param[in] userData Possible data that is passed 
 		 * to the callback function at each call.
 		 */
-		void setCallback(CallbackFunction callback, void *userData = nullptr);
+		virtual void setCallback(CallbackFunction callback, void *userData = nullptr) = 0;
 
 		/**
 		 * This is doing the work.
 		 * iterate() should be called in the main loop allongside with
 		 * tox_iterate().
 		 */
-		void iterate();
+		virtual void iterate() = 0;
 
 		/**
 		 * Sends an connection Request to the friend.
 		 */
-		void sendConnectionRequest(uint32_t friendNumber);
+		virtual void sendConnectionRequest(uint32_t friendNumber) = 0;
 
 		/**
 		 * Accepts an priviously received connection request from friend.
 		 */
-		void acceptConnection(uint32_t friendNumber);
+		virtual void acceptConnection(uint32_t friendNumber) = 0;
 
 		/**
 		 * Rejects an priviously received connection request from friend.
 		 */
-		void rejectConnection(uint32_t friendNumber);
+		virtual void rejectConnection(uint32_t friendNumber) = 0;
 
 		/**
 		 * Close connection to friend.
 		 * This also unsets the ip of 
 		 * the tun interface.
 		 */
-		void closeConnection();
+		virtual void closeConnection() = 0;
+};
+
+/**
+ * Error class thrown by newToxTun()
+ */
+class ToxTunError : public std::exception {
+	private:
+		std::string string;
+
+	public:
+		ToxTunError(const std::string &string) : string(string) {}
+		virtual const char* what() const noexcept {return string.c_str();}
 };
 
 #endif //TOX_TUN_HPP

@@ -4,10 +4,7 @@ libtoxtun_ladir = $(includedir)/toxtun
 
 libtoxtun_la_HEADERS = \
 	ToxTun.hpp \
-	ToxTunC.h \
-	Tun.hpp \
-	TunUnix.hpp \
-	TunWin.hpp
+	ToxTunC.h
 
 libtoxtun_la_SOURCES = \
 	$(libtoxtun_la_HEADERS) \
@@ -17,9 +14,14 @@ libtoxtun_la_SOURCES = \
 	Logger.hpp \
 	ToxTun.cpp \
 	ToxTunC.cpp \
+	ToxTunCore.cpp \
+	ToxTunCore.hpp \
 	Tun.cpp \
+	Tun.hpp \
 	TunUnix.cpp \
-	TunWin.cpp
+	TunUnix.hpp \
+	TunWin.cpp \
+	TunWin.hpp
 
 libtoxtun_la_CPPFLAGS = -std=c++11 $(AM_CXXFLAGS)
 libtoxtun_la_LDFLAGS = $(AM_LDFLAGS)

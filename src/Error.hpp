@@ -18,6 +18,9 @@
 #ifndef ERROR_HPP
 #define ERROR_HPP
 
+/**
+ * Error class for internal use.
+ */
 class Error {
 	public:
 		enum class Err {
