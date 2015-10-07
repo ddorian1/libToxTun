@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libtoxtun
+Description: Library to create tun connections via tox
+Version: @PACKAGE_VERSION@
+Requires: libtoxcore
+Libs: -L@libdir@ -ltoxtun
+Cflags: -I@includedir@/toxtun
