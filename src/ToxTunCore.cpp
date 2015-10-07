@@ -133,6 +133,11 @@ void ToxTunCore::iterate() {
 void ToxTunCore::sendConnectionRequest(uint32_t friendNumber) {
 	if (state != State::Idle) {
 		Logger::debug("Can't send connection request while not idle");
+		callbackFunction(
+				ToxTun::Event::ConnectionClosed,
+				friendNumber,
+				callbackUserData
+		);
 		return;
 	}
 
@@ -328,6 +333,11 @@ void ToxTunCore::sendToTox(const Data &data, uint32_t friendNumber) const {
 void ToxTunCore::acceptConnection(uint32_t friendNumber) {
 	if (state != State::Idle) {
 		Logger::debug("Can't accept connection while not idle");
+		callbackFunction(
+				ToxTun::Event::ConnectionClosed,
+				friendNumber,
+				callbackUserData
+		);
 		return;
 	}
 
