@@ -24,4 +24,4 @@ libtoxtun_la_SOURCES = \
 	TunWin.hpp
 
 libtoxtun_la_CPPFLAGS = -std=c++11 $(AM_CXXFLAGS)
-libtoxtun_la_LDFLAGS = $(AM_LDFLAGS)
+libtoxtun_la_LDFLAGS = $(AM_LDFLAGS) -version-info 0:0:0
