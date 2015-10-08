@@ -25,6 +25,7 @@
 ToxTunCore::ToxTunCore(Tox *tox)
 :
 	tox(tox),
+	tun(tox),
 	state(State::Idle),
 	callbackUserData(nullptr),
 	callbackFunction(nullptr)
@@ -114,16 +115,14 @@ void ToxTunCore::setCallback(ToxTun::CallbackFunction callback, void *userData) 
 }
 
 void ToxTunCore::iterate() {
-	if (state == State::Connected) {
+	/*
+	 * TODO: is 10 a reasonable value?
+	 * Or would a timeout be a better solution?
+	 */
+	for (int i=0;i<10;++i) {
+		if (state != State::Connected || !tun.dataPending()) break;
 		try {
-			/* 
-			 * TODO: is 10 a reasonable value?
-			 * Or would a timeout be a better solution?
-			 */
-			for (int i=0;i<10;++i) {
-				if (!tun.dataPending()) break;
-				sendToTox(tun.getData(), connectedFriend);
-			}
+			sendToTox(tun.getData(), connectedFriend);
 		} catch (Error &error) {
 			handleError(error);
 		}

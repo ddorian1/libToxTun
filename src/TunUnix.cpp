@@ -34,8 +34,9 @@
 #include <cerrno>
 #include <tox/tox.h>
 
-TunUnix::TunUnix() 
+TunUnix::TunUnix(const Tox *tox)
 :
+	TunInterface(tox),
 	fd(open("/dev/net/tun", O_RDWR))
 {
 	if (fd < 0) {
@@ -160,7 +161,7 @@ bool TunUnix::dataPending() {
 	return FD_ISSET(fd, &set);
 }
 
-Data TunUnix::getData() {
+Data TunUnix::getDataBackend() {
 	constexpr size_t bufferSize = 1500 + 18; //Max length of an ethernet frame
 	uint8_t buffer[bufferSize];
 
@@ -168,9 +169,9 @@ Data TunUnix::getData() {
 	if (n < 0) {
 		Logger::error("Reading from TUN returns ", n);
 		throw Error(Error::Err::Temp);
-	} else {
-		Logger::debug(n, " bytes read from TUN");
 	}
+
+	Logger::debug(n, " bytes read from TUN");
 
 	return Data::fromTunData(buffer, n);
 }

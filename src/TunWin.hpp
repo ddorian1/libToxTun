@@ -67,11 +67,13 @@ class TunWin : public TunInterface {
 		 */
 		DWORD getAdapterIndex() const;
 
+		virtual Data getDataBackend() final;
+
 	public:
 		/**
 		 * Creates the tun interface
 		 */
-		TunWin();
+		TunWin(const Tox *tox);
 
 		TunWin(const TunWin&) = delete; /**< Deleted */
 		TunWin& operator=(const TunWin&) = delete; /**< Deleted */
@@ -84,7 +86,6 @@ class TunWin : public TunInterface {
 		virtual void setIp(const uint8_t postfix) final;
 		virtual void unsetIp() final;
 		virtual bool dataPending() final;
-		virtual Data getData() final;
 		virtual void sendData(const Data &data) final;
 };
 

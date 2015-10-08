@@ -25,11 +25,32 @@
 #include <vector>
 
 class Data;
+class Tox;
 
 /**
  * Abstract Tun interface class
  */
 class TunInterface {
+	private:
+		const uint16_t toxUdpPort; /**< UDP port used by local tox instance */
+
+		/**
+		 * Check wether or not an ethernet frame is send from the own tox instance
+		 */
+		bool isFromOwnTox(const Data &data);
+
+		/**
+		 * Called by isFromOwnTox()
+		 * \sa isFromOwnTox()
+		 */
+		bool isFromOwnToxIPv4(const Data &data);
+
+		/**
+		 * Called by isFromOwnTox()
+		 * \sa isFromOwnTox()
+		 */
+		bool isFromOwnToxIPv6(const Data &data);
+
 	protected:
 		/**
 		 * Generate IPv4 Address from postfix.
@@ -38,7 +59,16 @@ class TunInterface {
 		 */
 		static std::string ipv4FromPostfix(const uint8_t postfix);
 
+		/**
+		 * Get data from tun interface.
+		 * Called by getData()
+		 * \sa getData()
+		 */
+		virtual Data getDataBackend() = 0;
+
 	public:
+		TunInterface(const Tox *tox);
+
 		/**
 		 * Set IPv4 and IPv6 of tun interface
 		 */
@@ -61,7 +91,7 @@ class TunInterface {
 		 * May ether throw an error or lock if there isn't any data to read.
 		 * \sa dataPending()
 		 */
-		virtual Data getData() = 0;
+		Data getData();
 
 		/**
 		 * Send data to tun interface.
@@ -79,7 +109,7 @@ class TunWin;
 using Tun = TunWin;
 #include "TunWin.hpp"
 #else
-#error Not implemented yet
+#error No tun backend avaible for target platform
 #endif
 
 
