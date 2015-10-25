@@ -21,6 +21,7 @@
 #include "Data.hpp"
 
 #include <cstring>
+#include <chrono>
 
 ToxTunCore::ToxTunCore(Tox *tox)
 :
@@ -115,12 +116,15 @@ void ToxTunCore::setCallback(ToxTun::CallbackFunction callback, void *userData) 
 }
 
 void ToxTunCore::iterate() {
-	/*
-	 * TODO: is 10 a reasonable value?
-	 * Or would a timeout be a better solution?
-	 */
-	for (int i=0;i<10;++i) {
+	using namespace std::chrono;
+	const high_resolution_clock::time_point tStart = high_resolution_clock::now();
+	while(true) {
 		if (state != State::Connected || !tun.dataPending()) break;
+
+		const high_resolution_clock::time_point tNow = high_resolution_clock::now();
+		const duration<double> tElapsed = duration_cast<duration<double>>(tNow - tStart);
+		if (tElapsed > microseconds(500)) break;
+
 		try {
 			sendToTox(tun.getData(), connectedFriend);
 		} catch (Error &error) {
