@@ -25,6 +25,7 @@
 #include <forward_list>
 #include <list>
 #include <vector>
+#include <memory>
 
 /**
  * Class for convenient handling of data to send or receive.
@@ -60,7 +61,7 @@ class Data {
 		 * The actuall data.
 		 * The first byte is reserved for the tox header.
 		 */
-		std::vector<uint8_t> data;
+		std::shared_ptr< std::vector<uint8_t> > data;
 
 		/**
 		 * Identifice wether or not the first byte of the data is an 

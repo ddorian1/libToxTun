@@ -23,13 +23,13 @@
 
 Data::Data(size_t len) 
 :
-	data(len),
+	data(std::make_shared< std::vector<uint8_t> >(len)),
 	toxHeaderSet(false)
 {}
 
 Data Data::fromToxData(const uint8_t *buffer, size_t len) {
 	Data data(len);
-	memcpy(&(data.data[0]), buffer, len);
+	memcpy(&(data.data->at(0)), buffer, len);
 	data.toxHeaderSet = true;
 
 	return data;
@@ -37,27 +37,27 @@ Data Data::fromToxData(const uint8_t *buffer, size_t len) {
 
 Data Data::fromFragments(std::list<Data> &fragments) {
 	size_t len = 0;
-	for (const auto &f : fragments) len += f.data.size() - 4;
+	for (const auto &f : fragments) len += f.data->size() - 4;
 
 	Data data(len);
 
 	fragments.sort(
 			[](const Data &d1, const Data &d2) {
-				return (d1.data[2] < d2.data[2]);
+				return (d1.data->at(2) < d2.data->at(2));
 			}
 	);
 
 	size_t pos = 0;
 	size_t i = 0;
 	for (const auto &f : fragments) {
-		if (i != f.data[2]) {
+		if (i != f.data->at(2)) {
 			Logger::debug("Ignoring corrupted fragmented package");
 			throw Error(Error::Err::Temp);
 		}
 		++i;
 
-		memcpy(&data.data[pos], &f.data[4], f.data.size() - 4);
-		pos += f.data.size() - 4;
+		memcpy(&data.data->at(pos), &f.data->at(4), f.data->size() - 4);
+		pos += f.data->size() - 4;
 	}
 
 	data.toxHeaderSet = true;
@@ -67,7 +67,7 @@ Data Data::fromFragments(std::list<Data> &fragments) {
 
 Data Data::fromTunData(const uint8_t *buffer, size_t len) {
 	Data data(len + 1);
-	memcpy(&(data.data[1]), buffer, len);
+	memcpy(&(data.data->at(1)), buffer, len);
 	data.setToxHeader(PacketId::Data);
 	
 	return data;
@@ -75,7 +75,7 @@ Data Data::fromTunData(const uint8_t *buffer, size_t len) {
 
 Data Data::fromIpPostfix(uint8_t postfix) {
 	Data data(2);
-	data.data[1] = postfix;
+	data.data->at(1) = postfix;
 	data.setToxHeader(PacketId::IP);
 
 	return data;
@@ -89,7 +89,7 @@ Data Data::fromPacketId(PacketId id) {
 }
 
 void Data::setToxHeader(PacketId id) {
-	data.at(0) = static_cast<uint8_t>(id);
+	data->at(0) = static_cast<uint8_t>(id);
 	toxHeaderSet = true;
 }
 
@@ -100,15 +100,15 @@ Data::PacketId Data::getToxHeader() const {
 		throw Error(Error::Err::Critical);
 	}
 	
-	return static_cast<PacketId>(data.at(0));
+	return static_cast<PacketId>(data->at(0));
 }
 	
 const uint8_t* Data::getIpData() const {
-	return &(data[1]);
+	return &(data->at(1));
 }
 
 size_t Data::getIpDataLen() const {
-	return data.size() - 1;
+	return data->size() - 1;
 }
 
 const uint8_t* Data::getToxData() const {
@@ -118,11 +118,11 @@ const uint8_t* Data::getToxData() const {
 		throw Error(Error::Err::Critical);
 	}
 	
-	return &(data.at(0));
+	return &(data->at(0));
 }
 
 size_t Data::getToxDataLen() const {
-	return data.size();
+	return data->size();
 }
 
 uint8_t Data::getIpPostfix() const {
@@ -130,12 +130,12 @@ uint8_t Data::getIpPostfix() const {
 		Logger::error("Requesting IP from a non IP Packet");
 		throw Error(Error::Err::Critical);
 	}
-	if (data.size() != 2) {
+	if (data->size() != 2) {
 		Logger::error("Ip Packet has invalid size");
 		throw Error(Error::Err::Critical);
 	}
 
-	return data[1];
+	return data->at(1);
 }
 
 std::forward_list<Data> Data::getSplitted() const {
@@ -143,15 +143,15 @@ std::forward_list<Data> Data::getSplitted() const {
 	size_t fragmentIndex = 0;
 	std::forward_list<Data> dataList;
 
-	while (pos < data.size()) {
-		size_t toCpy = (data.size() - pos < TOX_MAX_CUSTOM_PACKET_SIZE - 4) ?
-			data.size() - pos : TOX_MAX_CUSTOM_PACKET_SIZE - 4;
+	while (pos < data->size()) {
+		size_t toCpy = (data->size() - pos < TOX_MAX_CUSTOM_PACKET_SIZE - 4) ?
+			data->size() - pos : TOX_MAX_CUSTOM_PACKET_SIZE - 4;
 
 		Data tmp = Data(toCpy+4);
 		tmp.setToxHeader(PacketId::Fragment);
-		tmp.data[1] = splittedDataIndex;
-		tmp.data[2] = fragmentIndex;
-		memcpy(&tmp.data[4], &data[pos], toCpy);
+		tmp.data->at(1) = splittedDataIndex;
+		tmp.data->at(2) = fragmentIndex;
+		memcpy(&(tmp.data->at(4)), &(data->at(pos)), toCpy);
 
 		pos += toCpy;
 		++fragmentIndex;
@@ -159,7 +159,7 @@ std::forward_list<Data> Data::getSplitted() const {
 		dataList.push_front(std::move(tmp));
 	}
 
-	for(auto &f : dataList) f.data[3] = fragmentIndex;
+	for(auto &f : dataList) f.data->at(3) = fragmentIndex;
 
 	splittedDataIndex = (splittedDataIndex == 255) ?
 		0 : (splittedDataIndex + 1);
@@ -184,7 +184,7 @@ uint8_t Data::getSplittedDataIndex() const {
 		Logger::error("Trying to get SplittedDataIndex from a non fragment");
 		throw(Error(Error::Err::Critical));
 	}
-	return data.at(1);
+	return data->at(1);
 }
 
 uint8_t Data::getFragmentsCount() const {
@@ -192,7 +192,7 @@ uint8_t Data::getFragmentsCount() const {
 		Logger::error("Trying to get fragmentsCount from a non fragment");
 		throw(Error(Error::Err::Critical));
 	}
-	return data.at(3);
+	return data->at(3);
 }
 
 uint8_t Data::splittedDataIndex = 0;
