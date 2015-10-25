@@ -21,10 +21,12 @@
 #include "Data.hpp"
 
 #include <cstring>
+#include <chrono>
 
 ToxTunCore::ToxTunCore(Tox *tox)
 :
 	tox(tox),
+	tun(tox),
 	state(State::Idle),
 	callbackUserData(nullptr),
 	callbackFunction(nullptr)
@@ -114,16 +116,17 @@ void ToxTunCore::setCallback(ToxTun::CallbackFunction callback, void *userData) 
 }
 
 void ToxTunCore::iterate() {
-	if (state == State::Connected) {
+	using namespace std::chrono;
+	const high_resolution_clock::time_point tStart = high_resolution_clock::now();
+	while(true) {
+		if (state != State::Connected || !tun.dataPending()) break;
+
+		const high_resolution_clock::time_point tNow = high_resolution_clock::now();
+		const duration<double> tElapsed = duration_cast<duration<double>>(tNow - tStart);
+		if (tElapsed > microseconds(500)) break;
+
 		try {
-			/* 
-			 * TODO: is 10 a reasonable value?
-			 * Or would a timeout be a better solution?
-			 */
-			for (int i=0;i<10;++i) {
-				if (!tun.dataPending()) break;
-				sendToTox(tun.getData(), connectedFriend);
-			}
+			sendToTox(tun.getData(), connectedFriend);
 		} catch (Error &error) {
 			handleError(error);
 		}
@@ -133,6 +136,11 @@ void ToxTunCore::iterate() {
 void ToxTunCore::sendConnectionRequest(uint32_t friendNumber) {
 	if (state != State::Idle) {
 		Logger::debug("Can't send connection request while not idle");
+		callbackFunction(
+				ToxTun::Event::ConnectionClosed,
+				friendNumber,
+				callbackUserData
+		);
 		return;
 	}
 
@@ -328,6 +336,11 @@ void ToxTunCore::sendToTox(const Data &data, uint32_t friendNumber) const {
 void ToxTunCore::acceptConnection(uint32_t friendNumber) {
 	if (state != State::Idle) {
 		Logger::debug("Can't accept connection while not idle");
+		callbackFunction(
+				ToxTun::Event::ConnectionClosed,
+				friendNumber,
+				callbackUserData
+		);
 		return;
 	}
 

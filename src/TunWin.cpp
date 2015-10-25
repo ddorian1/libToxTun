@@ -25,8 +25,9 @@
 #include <iphlpapi.h>
 #include <winioctl.h>
 
-TunWin::TunWin() 
+TunWin::TunWin(const Tox *tox)
 :
+	TunInterface(tox),
 	handle(INVALID_HANDLE_VALUE),
 	ipPostfix(255),
 	bytesRead(0),
@@ -321,7 +322,6 @@ void TunWin::unsetIp() {
 	Logger::debug("Tun shutted down");
 }
 
-
 bool TunWin::dataPending() {
 	switch (readState) {
 		case ReadState::Queued:
@@ -386,7 +386,7 @@ void TunWin::setBytesRead() {
 	}
 }
 
-Data TunWin::getData() {
+Data TunWin::getDataBackend() {
 	if (readState != ReadState::Ready) {
 		Logger::error("Wrong readState in getData!");
 		throw Error(Error::Err::Temp);

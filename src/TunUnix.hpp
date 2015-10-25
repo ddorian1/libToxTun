@@ -34,11 +34,13 @@ class TunUnix : public TunInterface {
 		const int fd; /**< file desctiptor of tun interface */
 		std::string name; /**< name of tun interface */
 
+		virtual Data getDataBackend() final;
+
 	public:
 		/**
 		 * Creates the tun interface
 		 */
-		TunUnix();
+		TunUnix(const Tox *tox);
 
 		TunUnix(const TunUnix&) = delete; /**< Deleted */
 		TunUnix& operator=(const TunUnix&) = delete; /**< Deleted */
@@ -51,7 +53,6 @@ class TunUnix : public TunInterface {
 		virtual void setIp(const uint8_t postfix) final;
 		virtual void unsetIp() final;
 		virtual bool dataPending() final;
-		virtual Data getData() final;
 		virtual void sendData(const Data &data) final;
 };
 
