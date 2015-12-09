@@ -101,7 +101,7 @@ void toxtun_reject_connection(void *toxtun, uint32_t friendNumber);
  * Close connection to friend.
  * \sa ToxTun::closeConnection()
  */
-void toxtun_close_connection(void *toxtun);
+void toxtun_close_connection(void *toxtun, uint32_t friendNumber);
 
 /**\}*/
 

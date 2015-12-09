@@ -58,7 +58,7 @@ void *toxtun_new(Tox *tox) {
 
 void toxtun_kill(void *toxtun) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	t->closeConnection();
+	//t->closeConnection();
 	delete t;
 }
 
@@ -97,7 +97,7 @@ void toxtun_reject_connection(void *toxtun, uint32_t friendNumber) {
 	t->rejectConnection(friendNumber);
 }
 
-void toxtun_close_connection(void *toxtun) {
+void toxtun_close_connection(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	t->closeConnection();
+	t->closeConnection(friendNumber);
 }

@@ -178,6 +178,7 @@ TunWin::TunWin(const Tox *tox)
 }
 
 TunWin::~TunWin() {
+	unsetIp(); //TODO move code to destructor?
 	if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
 }
 

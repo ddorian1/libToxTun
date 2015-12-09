@@ -62,6 +62,7 @@ TunUnix::TunUnix(const Tox *tox)
 }
 
 TunUnix::~TunUnix() {
+	unsetIp(); //TODO: Check if IP is set at all?
 	if (fd >= 0) close(fd);
 }
 

@@ -70,9 +70,6 @@ class ToxTun {
 		ToxTun() = default;
 		virtual ~ToxTun() = default;
 
-		ToxTun(const ToxTun&) = delete; /**< Deleted */
-		ToxTun& operator=(const ToxTun&) = delete; /**< Deleted */
-
 		/**
 		 * Creates a new ToxTun class.
 		 * Throws ToxTunError in case of failure.
@@ -89,7 +86,7 @@ class ToxTun {
 		 * \return nullptr in case of error
 		 * \sa newToxTun()
 		 */
-		static ToxTun* newToxTunNoExp(Tox *tox);
+		static ToxTun* newToxTunNoExp(Tox *tox) noexcept ;
 
 		/**
 		 * Sets the callback function that is called for new events.
@@ -98,14 +95,14 @@ class ToxTun {
 		 * \param[in] userData Possible data that is passed 
 		 * to the callback function at each call.
 		 */
-		virtual void setCallback(CallbackFunction callback, void *userData = nullptr) = 0;
+		virtual void setCallback(CallbackFunction callback, void *userData = nullptr) noexcept = 0;
 
 		/**
 		 * This is doing the work.
 		 * iterate() should be called in the main loop allongside with
 		 * tox_iterate().
 		 */
-		virtual void iterate() = 0;
+		virtual void iterate() noexcept = 0;
 
 		/**
 		 * Sends an connection Request to the friend.
@@ -120,25 +117,25 @@ class ToxTun {
 		/**
 		 * Rejects an priviously received connection request from friend.
 		 */
-		virtual void rejectConnection(uint32_t friendNumber) = 0;
+		virtual void rejectConnection(uint32_t friendNumber) noexcept = 0;
 
 		/**
 		 * Close connection to friend.
 		 * This also unsets the ip of 
 		 * the tun interface.
 		 */
-		virtual void closeConnection() = 0;
+		virtual void closeConnection(uint32_t friendNumber) noexcept = 0;
 };
 
 /**
- * Error class thrown by newToxTun()
+ * Error class thrown by public methodes of ToxTun
  */
 class ToxTunError : public std::exception {
 	private:
 		std::string string;
 
 	public:
-		ToxTunError(const std::string &string) : string(string) {}
+		ToxTunError(const std::string &string) noexcept : string(string) {}
 		virtual const char* what() const noexcept {return string.c_str();}
 };
 

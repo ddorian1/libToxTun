@@ -21,13 +21,13 @@
 
 #include <tox/tox.h>
 
-Data::Data(size_t len) 
+Data::Data(size_t len) noexcept
 :
-	data(std::make_shared< std::vector<uint8_t> >(len)),
+	data(std::make_shared<std::vector<uint8_t>>(len ? len : 1)),
 	toxHeaderSet(false)
 {}
 
-Data Data::fromToxData(const uint8_t *buffer, size_t len) {
+Data Data::fromToxData(const uint8_t *buffer, size_t len) noexcept {
 	Data data(len);
 	memcpy(&(data.data->at(0)), buffer, len);
 	data.toxHeaderSet = true;
@@ -66,6 +66,11 @@ Data Data::fromFragments(std::list<Data> &fragments) {
 }
 
 Data Data::fromTunData(const uint8_t *buffer, size_t len) {
+	if (len + 1 == 0) {
+		Logger::error("Data to long to store in vector");
+		throw Error::Err::Temp;
+	}
+
 	Data data(len + 1);
 	memcpy(&(data.data->at(1)), buffer, len);
 	data.setToxHeader(PacketId::Data);
@@ -73,7 +78,7 @@ Data Data::fromTunData(const uint8_t *buffer, size_t len) {
 	return data;
 }
 
-Data Data::fromIpPostfix(uint8_t postfix) {
+Data Data::fromIpPostfix(uint8_t postfix) noexcept {
 	Data data(2);
 	data.data->at(1) = postfix;
 	data.setToxHeader(PacketId::IP);
@@ -81,14 +86,14 @@ Data Data::fromIpPostfix(uint8_t postfix) {
 	return data;
 }
 
-Data Data::fromPacketId(PacketId id) {
+Data Data::fromPacketId(PacketId id) noexcept {
 	Data data(1);
 	data.setToxHeader(id);
 
 	return data;
 }
 
-void Data::setToxHeader(PacketId id) {
+void Data::setToxHeader(PacketId id) noexcept {
 	data->at(0) = static_cast<uint8_t>(id);
 	toxHeaderSet = true;
 }
@@ -104,10 +109,15 @@ Data::PacketId Data::getToxHeader() const {
 }
 	
 const uint8_t* Data::getIpData() const {
+	if (data->size() < 2) {
+		//This should never happen
+		Logger::error("Trying to access IpData in Data packet of length 1");
+		throw Error(Error::Err::Temp);
+	}
 	return &(data->at(1));
 }
 
-size_t Data::getIpDataLen() const {
+size_t Data::getIpDataLen() const noexcept {
 	return data->size() - 1;
 }
 
@@ -121,12 +131,13 @@ const uint8_t* Data::getToxData() const {
 	return &(data->at(0));
 }
 
-size_t Data::getToxDataLen() const {
+size_t Data::getToxDataLen() const noexcept {
 	return data->size();
 }
 
 uint8_t Data::getIpPostfix() const {
 	if (getToxHeader() != PacketId::IP) {
+		//This should never happen
 		Logger::error("Requesting IP from a non IP Packet");
 		throw Error(Error::Err::Critical);
 	}
@@ -147,7 +158,13 @@ std::forward_list<Data> Data::getSplitted() const {
 		size_t toCpy = (data->size() - pos < TOX_MAX_CUSTOM_PACKET_SIZE - 4) ?
 			data->size() - pos : TOX_MAX_CUSTOM_PACKET_SIZE - 4;
 
-		Data tmp = Data(toCpy+4);
+		if (toCpy + 4 < toCpy) {
+			//This should never happen
+			Logger::error("Integer overflow in getSplitted()");
+			throw Error(Error::Err::Temp);
+		}
+
+		Data tmp = Data(toCpy + 4);
 		tmp.setToxHeader(PacketId::Fragment);
 		tmp.data->at(1) = splittedDataIndex;
 		tmp.data->at(2) = fragmentIndex;
@@ -175,14 +192,38 @@ Data::SendTox Data::getSendTox() const {
 		return SendTox::Lossless;
 	} else {
 		Logger::error("Called Data::getSendTox, but toxHeader not in range");
-		throw(Error(Error::Err::Critical));
+		throw Error(Error::Err::Critical);
 	}
+}
+
+bool Data::isValidFragment() const noexcept {
+	PacketId id;
+	try {
+		id = getToxHeader();
+	} catch (ToxTunError &error) {
+		return false;
+	}
+	if (id != PacketId::Fragment) {
+		Logger::debug("isValidFragment called on non fragment");
+		return false;
+	}
+
+	if (data->size() < 4) {
+		Logger::debug("Fragment to short");
+		return false;
+	}
+
+	return true;
 }
 
 uint8_t Data::getSplittedDataIndex() const {
 	if (getToxHeader() != PacketId::Fragment) {
 		Logger::error("Trying to get SplittedDataIndex from a non fragment");
-		throw(Error(Error::Err::Critical));
+		throw Error(Error::Err::Critical);
+	}
+	if (data->size() < 2) {
+		Logger::error("Empty Data fragment");
+		throw Error(Error::Err::Temp);
 	}
 	return data->at(1);
 }
@@ -191,6 +232,10 @@ uint8_t Data::getFragmentsCount() const {
 	if (getToxHeader() != PacketId::Fragment) {
 		Logger::error("Trying to get fragmentsCount from a non fragment");
 		throw(Error(Error::Err::Critical));
+	}
+	if (data->size() < 4) {
+		Logger::error("Data fragment to short");
+		throw Error(Error::Err::Temp);
 	}
 	return data->at(3);
 }

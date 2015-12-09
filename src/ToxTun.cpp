@@ -25,9 +25,6 @@ std::shared_ptr<ToxTun> ToxTun::newToxTun(Tox *tox) {
 
 	try {
 		ptr.reset(new ToxTunCore(tox));
-	} catch (Error &err) {
-		ptr.reset();
-		throw ToxTunError("Can't initialize ToxTunCore");
 	} catch (std::bad_alloc &err) {
 		ptr.reset();
 		throw ToxTunError("Can't allocate memory");
@@ -36,14 +33,6 @@ std::shared_ptr<ToxTun> ToxTun::newToxTun(Tox *tox) {
 	return ptr;
 }
 
-ToxTun* ToxTun::newToxTunNoExp(Tox *tox) {
-	ToxTunCore *t = nullptr;
-
-	try {
-		t = new (std::nothrow) ToxTunCore(tox);
-	} catch (Error &err) {
-		t = nullptr;
-	}
-	
-	return t;
+ToxTun* ToxTun::newToxTunNoExp(Tox *tox) noexcept {
+	return new (std::nothrow) ToxTunCore(tox);
 }

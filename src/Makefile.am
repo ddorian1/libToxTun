@@ -8,6 +8,8 @@ libtoxtun_la_HEADERS = \
 
 libtoxtun_la_SOURCES = \
 	$(libtoxtun_la_HEADERS) \
+	Connection.cpp \
+	Connection.hpp \
 	Data.cpp \
 	Data.hpp \
 	Error.hpp \
