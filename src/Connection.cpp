@@ -287,7 +287,6 @@ void Connection::sendToTox(const Data &data, uint32_t friendNumber, Tox *tox){
 void Connection::acceptConnection() {
 	if (state != State::FriendsRequestPending) {
 		throw ToxTunError("Connection not on right state to accept connection request");
-		return;
 	}
 
 	state = State::ExpectingIpPacket;
