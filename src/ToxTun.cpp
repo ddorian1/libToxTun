@@ -17,7 +17,6 @@
 
 #include "ToxTun.hpp"
 #include "ToxTunCore.hpp"
-#include "Error.hpp"
 #include "Logger.hpp"
 
 std::shared_ptr<ToxTun> ToxTun::newToxTun(Tox *tox) {

@@ -19,7 +19,6 @@
 
 #include "TunWin.hpp"
 #include "Logger.hpp"
-#include "Error.hpp"
 #include "Data.hpp"
 
 #include <iphlpapi.h>
@@ -50,8 +49,7 @@ TunWin::TunWin(const Tox *tox)
 	);
 
 	if (status != ERROR_SUCCESS) {
-		Logger::error("Can't open registry key ", ADAPTER_KEY);
-		throw Error(Error::Err::Permanent);
+		throw ToxTunError(Logger::concat("Can't open registry key ", ADAPTER_KEY));
 	}
 
 	while (true) {
@@ -77,8 +75,7 @@ TunWin::TunWin(const Tox *tox)
 		if (status == ERROR_NO_MORE_ITEMS) break;
 
 		if (status != ERROR_SUCCESS) {
-			Logger::error("Error while reading registry subkeys of ", ADAPTER_KEY);
-			throw Error(Error::Err::Permanent);
+			throw ToxTunError(Logger::concat("Error while reading registry subkeys of ", ADAPTER_KEY));
 		}
 
 		unitString = ADAPTER_KEY;
@@ -172,8 +169,7 @@ TunWin::TunWin(const Tox *tox)
 	}
 
 	if (handle == INVALID_HANDLE_VALUE) {
-		Logger::error("Can't open a tun device");
-		throw Error(Error::Err::Permanent);
+		throw ToxTunError("Can't open a tun device");
 	}
 }
 
@@ -209,8 +205,7 @@ void TunWin::setIp(const uint8_t postfix) {
 	);
 
 	if (!status) {
-		Logger::error("Can't set tun device to connected");
-		throw Error(Error::Err::Critical);
+		throw ToxTunError("Can't set tun device to connected");
 	}
 
 	try {
@@ -225,11 +220,11 @@ void TunWin::setIp(const uint8_t postfix) {
 				&NTEInstance
 		);
 
-		if (status != NO_ERROR) throw Error(Error::Err::Temp);
+		if (status != NO_ERROR) throw ToxTunError("AddIpAddress failed");
 
 		Logger::debug("Set IP to 10.0.0.", (int)postfix);
 		ipIsSet = true;
-	} catch (Error &err) {
+	} catch (ToxTunError &error) {
 		Logger::error("Can't get Adapter index. Pleas set IP to 10.0.0.", (int)postfix, "manually");
 	}
 
@@ -254,17 +249,15 @@ ULONG TunWin::getAdapterIndex() const {
 	ULONG size = 0;
 	status = GetAdaptersInfo(nullptr, &size);
 	if (status != ERROR_BUFFER_OVERFLOW) {
-		Logger::debug("GetAdapterInfo (size) failed");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("GetAdapterInfo (size) failed");
 	}
 
 	IP_ADAPTER_INFO *adapterInfo = new IP_ADAPTER_INFO[size];
-	if (!adapterInfo) throw Error(Error::Err::Temp);
+	if (!adapterInfo) throw ToxTunError("GetAdapterIndo failed");
 
 	status = GetAdaptersInfo(adapterInfo, &size);
 	if (status != NO_ERROR) {
-		Logger::debug("GetAdapterInfo failed");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("GetAdapterInfo failed");
 	}
 
 	IP_ADAPTER_INFO *tmp = adapterInfo;
@@ -279,9 +272,8 @@ ULONG TunWin::getAdapterIndex() const {
 		return index;
 	}
 
-	Logger::debug("No matching adapter in IP_ADAPTER_INFO");
 	delete[] adapterInfo;
-	throw Error(Error::Err::Temp);
+	throw ToxTunError("No matching adapter in IP_ADAPTER_INFO");
 }
 
 void TunWin::unsetIp() {
@@ -339,8 +331,7 @@ bool TunWin::dataPending() {
 		case ReadState::Ready:
 			return true;
 		default:
-			Logger::error("Unhandled state in TunWin::dataPending");
-			throw(Error(Error::Err::Critical));
+			throw ToxTunError("Unhandled state in TunWin::dataPending");
 	}
 }
 
@@ -363,8 +354,7 @@ void TunWin::queueRead() {
 		Logger::debug("ReadFile queued");
 		readState = ReadState::Queued;
 	} else {
-		Logger::error("ReadFile failed");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("ReadFile failed");
 	}
 }
 
@@ -382,15 +372,13 @@ void TunWin::setBytesRead() {
 		Logger::debug("setBytesRead called while read is still pending. Trying to fix this...");
 		readState = ReadState::Queued;
 	} else {
-		Logger::error("Error while calling GetOverlappedResult");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Error while calling GetOverlappedResult");
 	}
 }
 
 Data TunWin::getDataBackend() {
 	if (readState != ReadState::Ready) {
-		Logger::error("Wrong readState in getData!");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Wrong readState in getData");
 	}
 
 	readState = ReadState::Idle;
@@ -420,8 +408,7 @@ void TunWin::sendData(const Data &data) {
 		overlappedWrite.pop_front();
 	} else {
 		if (GetLastError() != ERROR_IO_PENDING) {
-			Logger::error("Writing to tun failed");
-			throw Error(Error::Err::Temp);
+			throw ToxTunError("Writing to tun failed");
 		}
 	}
 

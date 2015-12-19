@@ -18,7 +18,6 @@
 #include "Connection.hpp"
 #include "ToxTunCore.hpp"
 #include "Logger.hpp"
-#include "Error.hpp"
 #include "Data.hpp"
 
 #include <cstring>
@@ -111,7 +110,7 @@ void Connection::iterate(std::chrono::duration<double> time) noexcept {
 
 		try {
 			sendToTox(tun.getData());
-		} catch (Error &error) {
+		} catch (ToxTunError &error) {
 			//TODO
 			//handleError(error);
 		}
@@ -138,7 +137,7 @@ void Connection::resetConnection(uint32_t friendNumber, Tox *tox) noexcept {
 	Data data(Data::fromPacketId(Data::PacketId::ConnectionReset));
 	try {
 		sendToTox(data, friendNumber, tox);
-	} catch (Error &error) {}
+	} catch (ToxTunError &error) {}
 
 	Logger::debug("Reset connection to ", friendNumber);
 }
@@ -155,7 +154,7 @@ void Connection::handleConnectionAccepted() noexcept {
 	Data data(Data::fromIpPostfix(2));
 	try {
 		sendToTox(data);
-	} catch (Error &error) {
+	} catch (ToxTunError &error) {
 		resetConnection();
 		return;
 	}
@@ -218,7 +217,7 @@ void Connection::setIp(const Data &data) noexcept {
 		postfix = data.getIpPostfix();
 		tun.setIp(postfix);
 		Logger::debug("Ip set with postfix ", static_cast<int>(postfix));
-	} catch (Error &error) {
+	} catch (ToxTunError &error) {
 		Logger::error("Can't set Ip with postfix ", static_cast<int>(postfix));
 		return;
 	}
@@ -233,7 +232,7 @@ void Connection::sendToTun(const Data &data) noexcept {
 	}
 	try {
 		tun.sendData(data);
-	} catch (Error &error) {};
+	} catch (ToxTunError &error) {};
 }
 
 void Connection::sendToTox(const Data &data) const {
@@ -264,8 +263,7 @@ void Connection::sendToTox(const Data &data, uint32_t friendNumber, Tox *tox){
 				);
 
 				if (!status) {
-					Logger::error("Can't send lossless packet to ", friendNumber);
-					throw Error(Error::Err::Temp);
+					throw ToxTunError(Logger::concat("Can't send lossless packet to ", friendNumber));
 				}
 				break;
 			case Data::SendTox::Lossy:
@@ -279,8 +277,7 @@ void Connection::sendToTox(const Data &data, uint32_t friendNumber, Tox *tox){
 				);
 
 				if (!status) {
-					Logger::error("Can't send lossy packet to ", friendNumber);
-					throw Error(Error::Err::Temp);
+					throw ToxTunError(Logger::concat("Can't send lossy packet to ", friendNumber));
 				}
 				break;
 		}
@@ -325,9 +322,7 @@ void Connection::handleFragment(const Data &data) noexcept {
 		for (size_t i=sdi+128u;i<sdi+128u+3u;++i)
 			fragments.erase(i%256);
 
-		try {
-			handleData(Data::fromFragments(tmp));
-		} catch (Error &error) {};
+		handleData(Data::fromFragments(tmp));
 
 		Logger::debug("fragments[", connectedFriend, "].size() == ", fragments.size());
 	}

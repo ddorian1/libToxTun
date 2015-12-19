@@ -16,9 +16,9 @@
  */
 
 #include "Data.hpp"
-#include "Error.hpp"
 #include "Logger.hpp"
 #include "Tun.hpp"
+#include "ToxTun.hpp"
 
 #include <sstream>
 #include <tox/tox.h>
@@ -39,8 +39,7 @@ Data TunInterface::getData() {
 	Data data = getDataBackend();
 
 	if (isFromOwnTox(data)) {
-		Logger::debug("Dropping packet from own tox instance");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Dropping packet from own tox instance");
 	}
 
 	return data;

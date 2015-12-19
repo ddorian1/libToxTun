@@ -12,12 +12,12 @@ libtoxtun_la_SOURCES = \
 	Connection.hpp \
 	Data.cpp \
 	Data.hpp \
-	Error.hpp \
 	Logger.hpp \
 	ToxTun.cpp \
 	ToxTunC.cpp \
 	ToxTunCore.cpp \
 	ToxTunCore.hpp \
+	ToxTunError.cpp \
 	Tun.cpp \
 	Tun.hpp \
 	TunUnix.cpp \

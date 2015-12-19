@@ -135,9 +135,8 @@ class ToxTunError : public std::exception {
 		std::string string;
 
 	public:
-		ToxTunError(const std::string &string) noexcept : string(string) {}
-		virtual const char* what() const noexcept {return string.c_str();}
+		ToxTunError(const std::string &string) noexcept;
+		virtual const char* what() const noexcept;
 };
 
 #endif //TOX_TUN_HPP
-

@@ -19,8 +19,8 @@
 
 #include "TunUnix.hpp"
 #include "Logger.hpp"
-#include "Error.hpp"
 #include "Data.hpp"
+#include "ToxTun.hpp"
 
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -41,8 +41,7 @@ TunUnix::TunUnix(const Tox *tox)
 {
 	if (fd < 0) {
 		const char *errStr = std::strerror(errno);
-		Logger::error("Error while opening \"/dev/net/tun\": ", errStr);
-		throw Error(Error::Err::Permanent);
+		throw ToxTunError(Logger::concat("Error while opening \"/dev/net/tun\": ", errStr));
 	}
 
 	struct ifreq ifr = {}; //{} initializes ifr with 0
@@ -50,10 +49,9 @@ TunUnix::TunUnix(const Tox *tox)
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
 	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
-		const char *errStr = std::strerror(errno);
-		Logger::error("ioctl failed: ", errStr);
+		std::string errStr(std::strerror(errno));
 		close(fd);
-		throw Error(Error::Err::Permanent);
+		throw ToxTunError(Logger::concat("ioctl failed: ", errStr));
 	}
 
 	name = ifr.ifr_name;
@@ -168,8 +166,7 @@ Data TunUnix::getDataBackend() {
 
 	int n = read(fd, buffer, bufferSize);
 	if (n < 0) {
-		Logger::error("Reading from TUN returns ", n);
-		throw Error(Error::Err::Temp);
+		throw ToxTunError(Logger::concat("Reading from TUN returns ", n));
 	}
 
 	Logger::debug(n, " bytes read from TUN");
@@ -181,8 +178,7 @@ void TunUnix::sendData(const Data &data) {
 	int n = write(fd, data.getIpData(), data.getIpDataLen());
 	if (n < 0) {
 		const char *errStr = std::strerror(errno);
-		Logger::error("Writing to tun failed: ", errStr);
-		throw Error(Error::Err::Temp);
+		throw ToxTunError(Logger::concat("Writing to tun failed: ", errStr));
 	}
 
 	Logger::debug(n, " bytes written to TUN");

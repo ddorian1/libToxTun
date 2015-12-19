@@ -17,7 +17,7 @@
 
 #include "Data.hpp"
 #include "Logger.hpp"
-#include "Error.hpp"
+#include "ToxTun.hpp"
 
 #include <tox/tox.h>
 
@@ -51,8 +51,7 @@ Data Data::fromFragments(std::list<Data> &fragments) {
 	size_t i = 0;
 	for (const auto &f : fragments) {
 		if (i != f.data->at(2)) {
-			Logger::debug("Ignoring corrupted fragmented package");
-			throw Error(Error::Err::Temp);
+			throw ToxTunError("Fragmented package corrupted");
 		}
 		++i;
 
@@ -67,8 +66,7 @@ Data Data::fromFragments(std::list<Data> &fragments) {
 
 Data Data::fromTunData(const uint8_t *buffer, size_t len) {
 	if (len + 1 == 0) {
-		Logger::error("Data to long to store in vector");
-		throw Error::Err::Temp;
+		throw ToxTunError("Data from Tun to long to store in vector");
 	}
 
 	Data data(len + 1);
@@ -101,8 +99,7 @@ void Data::setToxHeader(PacketId id) noexcept {
 Data::PacketId Data::getToxHeader() const {
 	if (!toxHeaderSet) {
 		//This should never happen
-		Logger::error("ToxHeader not set for Data.");
-		throw Error(Error::Err::Critical);
+		throw ToxTunError("ToxHeader not set for Data package (1)");
 	}
 	
 	return static_cast<PacketId>(data->at(0));
@@ -111,8 +108,7 @@ Data::PacketId Data::getToxHeader() const {
 const uint8_t* Data::getIpData() const {
 	if (data->size() < 2) {
 		//This should never happen
-		Logger::error("Trying to access IpData in Data packet of length 1");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Trying to access IpData in Data packet of length 1");
 	}
 	return &(data->at(1));
 }
@@ -124,8 +120,7 @@ size_t Data::getIpDataLen() const noexcept {
 const uint8_t* Data::getToxData() const {
 	if (!toxHeaderSet) {
 		//This should never happen
-		Logger::error("ToxHeader not set for Data");
-		throw Error(Error::Err::Critical);
+		throw ToxTunError("ToxHeader not set for Data package (2)");
 	}
 	
 	return &(data->at(0));
@@ -138,12 +133,10 @@ size_t Data::getToxDataLen() const noexcept {
 uint8_t Data::getIpPostfix() const {
 	if (getToxHeader() != PacketId::IP) {
 		//This should never happen
-		Logger::error("Requesting IP from a non IP Packet");
-		throw Error(Error::Err::Critical);
+		throw ToxTunError("Requesting IP from a non IP Packet");
 	}
 	if (data->size() != 2) {
-		Logger::error("Ip Packet has invalid size");
-		throw Error(Error::Err::Critical);
+		throw ToxTunError("Ip Packet has invalid size");
 	}
 
 	return data->at(1);
@@ -160,8 +153,7 @@ std::forward_list<Data> Data::getSplitted() const {
 
 		if (toCpy + 4 < toCpy) {
 			//This should never happen
-			Logger::error("Integer overflow in getSplitted()");
-			throw Error(Error::Err::Temp);
+			throw ToxTunError("Integer overflow in getSplitted()");
 		}
 
 		Data tmp = Data(toCpy + 4);
@@ -191,8 +183,8 @@ Data::SendTox Data::getSendTox() const {
 	} else if (160 <= h && 191 >= h) {
 		return SendTox::Lossless;
 	} else {
-		Logger::error("Called Data::getSendTox, but toxHeader not in range");
-		throw Error(Error::Err::Critical);
+		//This should never happen
+		throw ToxTunError("Called getSendTox(), but toxHeader not in range");
 	}
 }
 
@@ -218,24 +210,21 @@ bool Data::isValidFragment() const noexcept {
 
 uint8_t Data::getSplittedDataIndex() const {
 	if (getToxHeader() != PacketId::Fragment) {
-		Logger::error("Trying to get SplittedDataIndex from a non fragment");
-		throw Error(Error::Err::Critical);
+		//This should never happen
+		throw ToxTunError("Trying to get SplittedDataIndex from a non fragment");
 	}
 	if (data->size() < 2) {
-		Logger::error("Empty Data fragment");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Empty Data fragment");
 	}
 	return data->at(1);
 }
 
 uint8_t Data::getFragmentsCount() const {
 	if (getToxHeader() != PacketId::Fragment) {
-		Logger::error("Trying to get fragmentsCount from a non fragment");
-		throw(Error(Error::Err::Critical));
+		throw ToxTunError("Trying to get fragmentsCount from a non fragment");
 	}
 	if (data->size() < 4) {
-		Logger::error("Data fragment to short");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Data fragment to short");
 	}
 	return data->at(3);
 }

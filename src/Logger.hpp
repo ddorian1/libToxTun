@@ -16,6 +16,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 
 /** \file */
 
@@ -24,39 +25,40 @@
  */
 namespace Logger {
 	/**
-	 * print last value and newline
+	 * Concat last element to string
 	 */
 	template<typename T>
-	static void print(T val) {
-		std::cout << val << "\n";
+	static std::string concat(T val) noexcept {
+		std::ostringstream s;
+		s << val;
+		return s.str();
 	}
 
 	/**
-	 * print list of values
+	 * Concat to string
 	 */
 	template<typename First, typename ... Rest>
-	static void print(First first, Rest ... rest) {
-		std::cout << first;
-		print(rest ...);
+	std::string concat(First first, Rest ... rest) noexcept {
+		std::ostringstream s;
+		s << first << concat(rest ...);
+		return s.str();
 	}
 
 	/**
-	 * log a debug message
+	 * Log a debug message
 	 */
 	template<typename ... Args>
-	void debug(Args ... args) {
+	void debug(Args ... args) noexcept {
 #ifdef DEBUG
-		std::cout << "DEBUG:\t";
-		print(args ...);
+		std::cout << "DEBUG:\t" << concat(args ...) << std::endl;
 #endif
 	}
 
 	/**
-	 * log an error message
+	 * Log an error message
 	 */
 	template<typename ... Args>
-	void error(Args ... args) {
-		std::cout << "ERROR:\t";
-		print(args ...);
+	void error(Args ... args) noexcept {
+		std::cout << "ERROR:\t" << concat(args ...) << std::endl;
 	}
 } //namespace Logger

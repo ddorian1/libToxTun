@@ -18,7 +18,6 @@
 #include "ToxTunCore.hpp"
 #include "Connection.hpp"
 #include "Logger.hpp"
-#include "Error.hpp"
 #include "Data.hpp"
 
 #include <chrono>
@@ -101,7 +100,7 @@ void ToxTunCore::handleConnectionRequest(uint32_t friendNumber) noexcept {
 				std::forward_as_tuple(friendNumber), 
 				std::forward_as_tuple(friendNumber, *this, false)
 		);
-	} catch (Error &error) {
+	} catch (ToxTunError &error) {
 		connections.erase(friendNumber); //needed?
 		Connection::resetConnection(friendNumber, tox);
 		return;
