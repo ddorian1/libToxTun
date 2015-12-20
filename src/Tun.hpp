@@ -37,19 +37,19 @@ class TunInterface {
 		/**
 		 * Check wether or not an ethernet frame is send from the own tox instance
 		 */
-		bool isFromOwnTox(const Data &data);
+		bool isFromOwnTox(const Data &data) noexcept;
 
 		/**
 		 * Called by isFromOwnTox()
 		 * \sa isFromOwnTox()
 		 */
-		bool isFromOwnToxIPv4(const Data &data);
+		bool isFromOwnToxIPv4(const Data &data) noexcept;
 
 		/**
 		 * Called by isFromOwnTox()
 		 * \sa isFromOwnTox()
 		 */
-		bool isFromOwnToxIPv6(const Data &data);
+		bool isFromOwnToxIPv6(const Data &data) noexcept;
 
 	protected:
 		/**
@@ -57,7 +57,7 @@ class TunInterface {
 		 * \param[in] postfix postfix to use
 		 * \return string of form "10.0.0.[postfix]"
 		 */
-		static std::string ipv4FromPostfix(const uint8_t postfix);
+		static std::string ipv4FromPostfix(const uint8_t postfix) noexcept;
 
 		/**
 		 * Get data from tun interface.
@@ -69,15 +69,13 @@ class TunInterface {
 	public:
 		TunInterface(const Tox *tox);
 
+		TunInterface(const TunInterface&) = delete; /**< Deleted */
+		TunInterface& operator=(const TunInterface&) = delete; /**< Deleted */
+
 		/**
 		 * Set IPv4 and IPv6 of tun interface
 		 */
-		virtual void setIp(const uint8_t postfix) = 0;
-
-		/**
-		 * Bring tun interface down
-		 */
-		virtual void unsetIp() = 0;
+		virtual void setIp(const uint8_t postfix) noexcept = 0;
 
 		/**
 		 * Indicates wether or not there is pending data to be

@@ -171,19 +171,6 @@ TunWin::TunWin(const Tox *tox)
 	if (handle == INVALID_HANDLE_VALUE) {
 		throw ToxTunError("Can't open a tun device");
 	}
-}
-
-TunWin::~TunWin() {
-	unsetIp(); //TODO move code to destructor?
-	if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
-}
-
-void TunWin::setIp(const uint8_t postfix) {
-	DWORD len;
-	DWORD status;
-
-	uint32_t ip = 0x0a000000 + postfix;
-	uint32_t netmask = 0xFFFFFF00;
 
 	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
 			FILE_DEVICE_UNKNOWN,
@@ -207,6 +194,44 @@ void TunWin::setIp(const uint8_t postfix) {
 	if (!status) {
 		throw ToxTunError("Can't set tun device to connected");
 	}
+}
+
+TunWin::~TunWin() {
+	unsetIp();
+
+	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
+			FILE_DEVICE_UNKNOWN,
+			6,
+			METHOD_BUFFERED,
+			FILE_ANY_ACCESS
+	);
+
+	ULONG f = false;
+	status = DeviceIoControl(
+			handle,
+			TAP_WIN_IOCTL_SET_MEDIA_STATUS,
+			&f,
+			sizeof(f),
+			&f,
+			sizeof(f),
+			&len, 
+			nullptr
+	);
+
+	if (!status) {
+		Logger::error("Can't set tun device to disconnected");
+		return;
+	}
+
+	if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+}
+
+void TunWin::setIp(const uint8_t postfix) noexcept {
+	DWORD len;
+	DWORD status;
+
+	uint32_t ip = 0x0a000000 + postfix;
+	uint32_t netmask = 0xFFFFFF00;
 
 	try {
 		DWORD index = getAdapterIndex();
@@ -286,30 +311,6 @@ void TunWin::unsetIp() {
 			Logger::error("Can't remove IPv4 from tun device");
 		}
 		ipIsSet = false;
-	}
-
-	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
-			FILE_DEVICE_UNKNOWN,
-			6,
-			METHOD_BUFFERED,
-			FILE_ANY_ACCESS
-	);
-
-	ULONG f = false;
-	status = DeviceIoControl(
-			handle,
-			TAP_WIN_IOCTL_SET_MEDIA_STATUS,
-			&f,
-			sizeof(f),
-			&f,
-			sizeof(f),
-			&len, 
-			nullptr
-	);
-
-	if (!status) {
-		Logger::error("Can't set tun device to disconnected");
-		return;
 	}
 
 	Logger::debug("Tun shutted down");

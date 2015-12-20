@@ -80,7 +80,6 @@ class ToxTunCore : public ToxTun {
 		 */
 		ToxTunCore(Tox *tox) noexcept;
 
-		//TODO deletions needed anymore?
 		ToxTunCore(const ToxTunCore&) = delete; /**< Deleted */
 		ToxTunCore& operator=(const ToxTunCore&) = delete; /**< Deleted */
 

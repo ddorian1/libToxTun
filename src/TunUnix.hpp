@@ -34,6 +34,7 @@ class TunUnix : public TunInterface {
 		const int fd; /**< file desctiptor of tun interface */
 		std::string name; /**< name of tun interface */
 
+		void shutdown();
 		virtual Data getDataBackend() final;
 
 	public:
@@ -50,8 +51,7 @@ class TunUnix : public TunInterface {
 		 */
 		~TunUnix();
 
-		virtual void setIp(const uint8_t postfix) final;
-		virtual void unsetIp() final;
+		virtual void setIp(const uint8_t postfix) noexcept final;
 		virtual bool dataPending() final;
 		virtual void sendData(const Data &data) final;
 };

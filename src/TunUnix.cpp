@@ -60,11 +60,11 @@ TunUnix::TunUnix(const Tox *tox)
 }
 
 TunUnix::~TunUnix() {
-	unsetIp(); //TODO: Check if IP is set at all?
+	shutdown();
 	if (fd >= 0) close(fd);
 }
 
-void TunUnix::setIp(const uint8_t postfix) {
+void TunUnix::setIp(const uint8_t postfix) noexcept {
 	struct ifreq ifr = {};
 	struct sockaddr_in sai = {};
 	in_addr_t in_addr = {};
@@ -119,7 +119,7 @@ void TunUnix::setIp(const uint8_t postfix) {
 	close(fd);
 }
 
-void TunUnix::unsetIp() {
+void TunUnix::shutdown() {
 	struct ifreq ifr = {};
 
 	int fd = socket(AF_INET, SOCK_STREAM, 0);

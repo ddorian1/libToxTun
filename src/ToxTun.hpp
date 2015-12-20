@@ -68,6 +68,8 @@ class ToxTun {
 		);
 
 		ToxTun() = default;
+		ToxTun(const ToxTun&) = delete; /**< Deleted */
+		ToxTun& operator=(const ToxTun&) = delete; /**< Deleted */
 		virtual ~ToxTun() = default;
 
 		/**

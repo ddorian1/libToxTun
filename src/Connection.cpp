@@ -110,10 +110,7 @@ void Connection::iterate(std::chrono::duration<double> time) noexcept {
 
 		try {
 			sendToTox(tun.getData());
-		} catch (ToxTunError &error) {
-			//TODO
-			//handleError(error);
-		}
+		} catch (ToxTunError &error) {}
 	}
 }
 
@@ -159,7 +156,7 @@ void Connection::handleConnectionAccepted() noexcept {
 		return;
 	}
 
-	tun.setIp(1); //TODO make shure this doesn't throw
+	tun.setIp(1);
 	state = State::Connected;
 	Logger::debug("Connected to ", connectedFriend);
 	toxTunCore.callback(

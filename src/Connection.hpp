@@ -147,7 +147,6 @@ class Connection {
 		 */
 		Connection(uint32_t friendNumber, ToxTunCore &toxTunCore, bool initiate);
 
-		//TODO deletions needed anymore?
 		Connection(const Connection&) = delete; /**< Deleted */
 		Connection& operator=(const Connection&) = delete; /**< Deleted */
 

@@ -67,6 +67,7 @@ class TunWin : public TunInterface {
 		 */
 		DWORD getAdapterIndex() const;
 
+		void unsetIp();
 		virtual Data getDataBackend() final;
 
 	public:
@@ -84,7 +85,6 @@ class TunWin : public TunInterface {
 		~TunWin();
 
 		virtual void setIp(const uint8_t postfix) final;
-		virtual void unsetIp() final;
 		virtual bool dataPending() final;
 		virtual void sendData(const Data &data) final;
 };
