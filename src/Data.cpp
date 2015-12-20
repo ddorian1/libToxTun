@@ -142,7 +142,7 @@ uint8_t Data::getIpPostfix() const {
 	return data->at(1);
 }
 
-std::forward_list<Data> Data::getSplitted() const {
+std::forward_list<Data> Data::getSplitted(uint8_t splittedDataIndex) const {
 	size_t pos = 0;
 	size_t fragmentIndex = 0;
 	std::forward_list<Data> dataList;
@@ -169,9 +169,6 @@ std::forward_list<Data> Data::getSplitted() const {
 	}
 
 	for(auto &f : dataList) f.data->at(3) = fragmentIndex;
-
-	splittedDataIndex = (splittedDataIndex == 255) ?
-		0 : (splittedDataIndex + 1);
 
 	return dataList;
 }
@@ -228,5 +225,3 @@ uint8_t Data::getFragmentsCount() const {
 	}
 	return data->at(3);
 }
-
-uint8_t Data::splittedDataIndex = 0;

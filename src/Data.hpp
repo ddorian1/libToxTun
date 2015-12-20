@@ -70,11 +70,6 @@ class Data {
 		bool toxHeaderSet;
 
 		/**
-		 * The index for the next splitted data packet
-		 */
-		static uint8_t splittedDataIndex;
-
-		/**
 		 * Private Constructor.
 		 * Use the static members to create an instance.
 		 */
@@ -171,7 +166,7 @@ class Data {
 		/**
 		 * Gets a list of splitted packegs that fit TOX_MAX_CUSTOM_PACKAGE_SIZE.
 		 */
-		std::forward_list<Data> getSplitted() const;
+		std::forward_list<Data> getSplitted(uint8_t splittedDataIndex) const;
 
 		/**
 		 * Gets the type of connection the packet must be send over via tox.

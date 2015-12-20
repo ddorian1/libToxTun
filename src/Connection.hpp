@@ -62,6 +62,11 @@ class Connection {
 		const uint32_t connectedFriend; 
 
 		/**
+		 * Index for next fragmented package to send.
+		 */
+		uint8_t nextFragmentIndex;
+
+		/**
 		 * Called by handleData
 		 * \sa handleData
 		 */
@@ -137,7 +142,7 @@ class Connection {
 		/**
 		 * Send data to friend via Tox
 		 */
-		void sendToTox(const Data &data) const;
+		void sendToTox(const Data &data);
 
 	public:
 		/**
@@ -180,7 +185,12 @@ class Connection {
 		/**
 		 * Send data to given friend via tox
 		 */
-		static void sendToTox(const Data &data, uint32_t friendNumber, Tox *tox);
+		static void sendToTox(
+				const Data &data,
+				uint32_t friendNumber,
+				Tox *tox,
+				uint8_t *nextFragmentIndex = nullptr
+		);
 };
 
 #endif //TOX_TUN_CONNECTION_HPP

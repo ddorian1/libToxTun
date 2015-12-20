@@ -30,7 +30,8 @@ Connection::Connection(uint32_t friendNumber, ToxTunCore &toxTunCore, bool initi
 			initiateConnection ? 
 			State::OwnRequestPending : State::FriendsRequestPending
 	),
-	connectedFriend(friendNumber)
+	connectedFriend(friendNumber),
+	nextFragmentIndex(0)
 {
 	if (initiateConnection)
 		sendConnectionRequest();
@@ -232,18 +233,24 @@ void Connection::sendToTun(const Data &data) noexcept {
 	} catch (ToxTunError &error) {};
 }
 
-void Connection::sendToTox(const Data &data) const {
-	sendToTox(data, connectedFriend, toxTunCore.getTox());
+void Connection::sendToTox(const Data &data) {
+	sendToTox(data, connectedFriend, toxTunCore.getTox(), &nextFragmentIndex);
 }
 
-void Connection::sendToTox(const Data &data, uint32_t friendNumber, Tox *tox){
+void Connection::sendToTox(const Data &data, uint32_t friendNumber, Tox *tox, uint8_t *nextFragmentIndex){
 	std::forward_list<Data> dataList;
 
 	if (data.getToxDataLen() <= TOX_MAX_CUSTOM_PACKET_SIZE) {
 		dataList.push_front(data);
 	} else {
 		Logger::debug("Packet to big for tox, splitting it");
-		dataList = std::move(data.getSplitted());
+		uint8_t index = 0;
+		if (nextFragmentIndex) {
+			index = *nextFragmentIndex;
+			*nextFragmentIndex = (*nextFragmentIndex == 255) ?
+				0 : *nextFragmentIndex + 1;
+		}
+		dataList = std::move(data.getSplitted(index));
 	}
 
 	bool status;
