@@ -27,7 +27,7 @@ Connection::Connection(uint32_t friendNumber, ToxTunCore &toxTunCore, bool initi
 	toxTunCore(toxTunCore),
 	tun(toxTunCore.getTox()),
 	state(
-			initiateConnection ? 
+			initiateConnection ?
 			State::OwnRequestPending : State::FriendsRequestPending
 	),
 	connectedFriend(friendNumber),
@@ -123,12 +123,16 @@ void Connection::sendConnectionRequest() {
 
 void Connection::resetConnection() noexcept {
 	resetConnection(connectedFriend, toxTunCore.getTox());
-	deleteConnection();
 
 	toxTunCore.callback(
 			ToxTun::Event::ConnectionClosed,
 			connectedFriend
 	);
+}
+
+void Connection::resetAndDeleteConnection() noexcept {
+	resetConnection();
+	deleteConnection();
 }
 
 void Connection::resetConnection(uint32_t friendNumber, Tox *tox) noexcept {
@@ -143,7 +147,7 @@ void Connection::resetConnection(uint32_t friendNumber, Tox *tox) noexcept {
 void Connection::handleConnectionAccepted() noexcept {
 	if (state != State::OwnRequestPending) {
 		Logger::debug("Unexpected connectionAccepted received from ", connectedFriend);
-		resetConnection();
+		resetAndDeleteConnection();
 		return;
 	}
 
@@ -153,7 +157,7 @@ void Connection::handleConnectionAccepted() noexcept {
 	try {
 		sendToTox(data);
 	} catch (ToxTunError &error) {
-		resetConnection();
+		resetAndDeleteConnection();
 		return;
 	}
 
@@ -169,7 +173,7 @@ void Connection::handleConnectionAccepted() noexcept {
 void Connection::handleConnectionRejected() noexcept {
 	if (state != State::OwnRequestPending) {
 		Logger::debug("Unexpected connectionReject received from ", connectedFriend);
-		resetConnection();
+		resetAndDeleteConnection();
 		return;
 	}
 
@@ -185,12 +189,12 @@ void Connection::handleConnectionRejected() noexcept {
 void Connection::handleConnectionClosed() noexcept {
 	if (state != State::Connected) {
 		Logger::debug("Received connectionClose from ", connectedFriend);
-		resetConnection();
+		resetAndDeleteConnection();
 		return;
 	}
 
 	toxTunCore.callback(
-			ToxTun::Event::ConnectionClosed, 
+			ToxTun::Event::ConnectionClosed,
 			connectedFriend
 	);
 
@@ -200,13 +204,18 @@ void Connection::handleConnectionClosed() noexcept {
 
 void Connection::handleConnectionReset() noexcept {
 	Logger::debug("ConnectionReset received from ", connectedFriend);
+
+	toxTunCore.callback(
+			ToxTun::Event::ConnectionClosed,
+			connectedFriend
+	);
 	deleteConnection();
 }
 
 void Connection::setIp(const Data &data) noexcept {
 	if (state != State::ExpectingIpPacket) {
 		Logger::debug("Received unexpected IpPacket from ", connectedFriend);
-		resetConnection();
+		resetAndDeleteConnection();
 		return;
 	}
 
@@ -226,7 +235,7 @@ void Connection::setIp(const Data &data) noexcept {
 void Connection::sendToTun(const Data &data) noexcept {
 	if (state != State::Connected) {
 		Logger::error("Received data package from not connected friend");
-		resetConnection();
+		resetAndDeleteConnection();
 	}
 	try {
 		tun.sendData(data);

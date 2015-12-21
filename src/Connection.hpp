@@ -110,9 +110,16 @@ class Connection {
 		void setIp(const Data &data) noexcept;
 
 		/**
-		 * Reset and delete the connection in case something went wrong
+		 * Reset the connection without deleting it
+		 * \sa resetAndDeleteConnection()
 		 */
 		void resetConnection() noexcept;
+
+		/**
+		 * Reset and delete the connection in case something went wrong
+		 * \sa resetConnection()
+		 */
+		void resetAndDeleteConnection() noexcept;
 
 		/**
 		 * Send a connection request to the friend
