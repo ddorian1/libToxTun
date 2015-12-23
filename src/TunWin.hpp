@@ -26,6 +26,7 @@
 
 #include <list>
 #include <string>
+#include <winsock2.h>
 #include <windows.h>
 
 /**
@@ -70,6 +71,8 @@ class TunWin : public TunInterface {
 		void unsetIp();
 		virtual Data getDataBackend() final;
 
+		virtual std::list<std::array<uint8_t, 4>> getUsedIp4Addresses() final;
+
 	public:
 		/**
 		 * Creates the tun interface
@@ -84,7 +87,7 @@ class TunWin : public TunInterface {
 		 */
 		~TunWin();
 
-		virtual void setIp(const uint8_t postfix) final;
+		virtual void setIp(uint8_t subnet, uint8_t postfix) noexcept final;
 		virtual bool dataPending() final;
 		virtual void sendData(const Data &data) final;
 };

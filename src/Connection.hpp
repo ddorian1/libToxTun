@@ -43,6 +43,7 @@ class Connection {
 			OwnRequestPending, 
 			FriendsRequestPending, 
 			ExpectingIpPacket,
+			ExpectingIpConfirmation,
 			Connected,
 			Deleting
 		};
@@ -65,6 +66,12 @@ class Connection {
 		 * Index for next fragmented package to send.
 		 */
 		uint8_t nextFragmentIndex;
+
+		/**
+		 * Last subnet we have proposed to friend.
+		 * -1 if we havend done so yet.
+		 */
+		int16_t subnet;
 
 		/**
 		 * Called by handleData
@@ -107,7 +114,19 @@ class Connection {
 		 * \param[in] data Data received via tox
 		 * \sa handleData
 		 */
-		void setIp(const Data &data) noexcept;
+		void handleIpProposal(const Data &data) noexcept;
+
+		/**
+		 * Called by handleData
+		 * \sa handleData
+		 */
+		void handleIpAccepted() noexcept;
+
+		/**
+		 * Called by handleData
+		 * \sa handleData
+		 */
+		void handleIpRejected() noexcept;
 
 		/**
 		 * Reset the connection without deleting it
@@ -135,6 +154,16 @@ class Connection {
 		 * Reject pending connection request
 		 */
 		void rejectConnection() noexcept;
+
+		/**
+		 * Send Ip proposal to friend
+		 */
+		void sendIp() noexcept;
+
+		/**
+		 * Set Ip and change state to connected
+		 */
+		void setIp(uint8_t subnet, uint8_t postfix) noexcept;
 
 		/**
 		 * Delete the connection from ToxTunCore

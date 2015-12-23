@@ -18,6 +18,7 @@
 #ifdef _WIN32
 
 #include "TunWin.hpp"
+#include "ToxTun.hpp"
 #include "Logger.hpp"
 #include "Data.hpp"
 
@@ -207,7 +208,8 @@ TunWin::~TunWin() {
 	);
 
 	ULONG f = false;
-	status = DeviceIoControl(
+	DWORD len;
+	DWORD status = DeviceIoControl(
 			handle,
 			TAP_WIN_IOCTL_SET_MEDIA_STATUS,
 			&f,
@@ -226,11 +228,11 @@ TunWin::~TunWin() {
 	if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
 }
 
-void TunWin::setIp(const uint8_t postfix) noexcept {
+void TunWin::setIp(uint8_t subnet, uint8_t postfix) noexcept {
 	DWORD len;
 	DWORD status;
 
-	uint32_t ip = 0x0a000000 + postfix;
+	uint32_t ip = 0xc0a80000 & (static_cast<uint32_t>(subnet) << 8) & postfix;
 	uint32_t netmask = 0xFFFFFF00;
 
 	try {
@@ -247,10 +249,10 @@ void TunWin::setIp(const uint8_t postfix) noexcept {
 
 		if (status != NO_ERROR) throw ToxTunError("AddIpAddress failed");
 
-		Logger::debug("Set IP to 10.0.0.", (int)postfix);
+		Logger::debug("Set IP to ", ipv4FromPostfix(subnet, postfix));
 		ipIsSet = true;
 	} catch (ToxTunError &error) {
-		Logger::error("Can't get Adapter index. Pleas set IP to 10.0.0.", (int)postfix, "manually");
+		Logger::error("Can't get Adapter index. Pleas set IP to ", ipv4FromPostfix(subnet, postfix), "manually");
 	}
 
 	Logger::debug("Tun device successfully started");
@@ -314,6 +316,44 @@ void TunWin::unsetIp() {
 	}
 
 	Logger::debug("Tun shutted down");
+}
+
+std::list<std::array<uint8_t, 4>> TunWin::getUsedIp4Addresses() {
+	ULONG size = 0;
+	DWORD status = GetAdaptersAddresses(AF_INET, 0, nullptr, nullptr, &size);
+	if (status != ERROR_BUFFER_OVERFLOW) {
+		throw ToxTunError("GetAdapterAddresses (size) failed");
+	}
+
+	IP_ADAPTER_ADDRESSES *adapterAddresses = new IP_ADAPTER_ADDRESSES[size];
+	if (!adapterAddresses) throw ToxTunError("GetAdapterAddresses failed");
+
+	status = GetAdaptersAddresses(AF_INET, 0, nullptr, adapterAddresses, &size);
+	if (status != NO_ERROR) {
+		throw ToxTunError("GetAdapterAddresses failed");
+	}
+
+	std::list<std::array<uint8_t, 4>> usedIps;
+
+	IP_ADAPTER_ADDRESSES *tmp = adapterAddresses;
+	while (tmp) {
+		IP_ADAPTER_UNICAST_ADDRESS *uAddr = tmp->FirstUnicastAddress;
+		while (uAddr) {
+			SOCKET_ADDRESS addr = uAddr->Address;
+			if (addr.lpSockaddr->sa_family == AF_INET) {
+				std::array<uint8_t, 4> a;
+				for (size_t i=0;i<4;++i) {
+					a[i] = addr.lpSockaddr->sa_data[i];
+				}
+				usedIps.push_back(a);
+			}
+			uAddr = uAddr->Next;
+		}
+		tmp = tmp->Next;
+	}
+
+	delete[] adapterAddresses;
+	return usedIps;
 }
 
 bool TunWin::dataPending() {

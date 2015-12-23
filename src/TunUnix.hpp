@@ -25,6 +25,8 @@
 #include "Tun.hpp"
 
 #include <string>
+#include <list>
+#include <array>
 
 /**
  * The unix backend for TunInterface
@@ -36,6 +38,7 @@ class TunUnix : public TunInterface {
 
 		void shutdown();
 		virtual Data getDataBackend() final;
+		virtual std::list<std::array<uint8_t, 4>> getUsedIp4Addresses() final;
 
 	public:
 		/**
@@ -51,9 +54,10 @@ class TunUnix : public TunInterface {
 		 */
 		~TunUnix();
 
-		virtual void setIp(const uint8_t postfix) noexcept final;
+		virtual void setIp(uint8_t subnet, uint8_t postfix) noexcept final;
 		virtual bool dataPending() final;
 		virtual void sendData(const Data &data) final;
+		virtual bool isAddrspaceUnused(uint8_t addrSpace) final;
 };
 
 #endif //__unix

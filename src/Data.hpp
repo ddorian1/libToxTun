@@ -43,7 +43,9 @@ class Data {
 			ConnectionReject = 162,
 			ConnectionClose = 163,
 			ConnectionReset = 164,
-			IP = 165,
+			IpProposal = 165,
+			IpAccept = 166,
+			IpReject = 167,
 			Data = 200,
 			Fragment = 201
 		};
@@ -97,7 +99,7 @@ class Data {
 		 * Create class from an ip postfix.
 		 * Sets the header to Data::PacketId::IP.
 		 */
-		static Data fromIpPostfix(uint8_t postfix) noexcept;
+		static Data fromIpPostfix(uint8_t subnet, uint8_t postfix) noexcept;
 
 		/**
 		 * Create class from an Data::PacketId.
@@ -139,10 +141,17 @@ class Data {
 
 		/**
 		 * Gets the ip postfix of a ip packet received via tox.
-		 * Throws an error, if header isn't Data::PacketId::IP
+		 * Throws an error, if header isn't Data::PacketId::Ip
 		 * or is otherwise invalid.
 		 */
 		uint8_t getIpPostfix() const;
+
+		/**
+		 * Gets the ip subnet of a ip packet received via tox.
+		 * Throws an error, if header isn't Data::PacketId::Ip
+		 * or is otherwise invalid.
+		 */
+		uint8_t getIpSubnet() const;
 
 		/**
 		 * Whether or not the fragment seems to be valid.

@@ -23,6 +23,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <list>
+#include <array>
 
 class Data;
 class Tox;
@@ -55,9 +57,9 @@ class TunInterface {
 		/**
 		 * Generate IPv4 Address from postfix.
 		 * \param[in] postfix postfix to use
-		 * \return string of form "10.0.0.[postfix]"
+		 * \return string of form "192.168.<subnet>.<postfix>"
 		 */
-		static std::string ipv4FromPostfix(const uint8_t postfix) noexcept;
+		static std::string ipv4FromPostfix(uint8_t subnet, uint8_t postfix) noexcept;
 
 		/**
 		 * Get data from tun interface.
@@ -65,6 +67,8 @@ class TunInterface {
 		 * \sa getData()
 		 */
 		virtual Data getDataBackend() = 0;
+
+		virtual std::list<std::array<uint8_t, 4>> getUsedIp4Addresses() = 0;
 
 	public:
 		TunInterface(const Tox *tox);
@@ -75,7 +79,7 @@ class TunInterface {
 		/**
 		 * Set IPv4 and IPv6 of tun interface
 		 */
-		virtual void setIp(const uint8_t postfix) noexcept = 0;
+		virtual void setIp(uint8_t subnet, uint8_t postfix) noexcept = 0;
 
 		/**
 		 * Indicates wether or not there is pending data to be
@@ -96,6 +100,12 @@ class TunInterface {
 		 * Throws an error in case of failure.
 		 */
 		virtual void sendData(const Data &data) = 0;
+
+		/**
+		 * Wether or not the addressspace 192.168.<addrSpace>.0 is allready used.
+		 * Throws an error if the addresses can't be determined.
+		 */
+		bool isAddrspaceUnused(uint8_t addrSpace);
 };
 
 #ifdef __unix

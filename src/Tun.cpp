@@ -28,10 +28,10 @@ TunInterface::TunInterface(const Tox *tox)
 	toxUdpPort(tox_self_get_udp_port(tox, nullptr))
 {}
 
-std::string TunInterface::ipv4FromPostfix(const uint8_t postfix) noexcept {
+std::string TunInterface::ipv4FromPostfix(uint8_t subnet, uint8_t postfix) noexcept {
 	std::ostringstream ip;
 	
-	ip << "10.0.0." << static_cast<int>(postfix);
+	ip << "192.168." << static_cast<int>(subnet) << "." << static_cast<int>(postfix);
 	return ip.str();
 }
 
@@ -127,3 +127,23 @@ bool TunInterface::isFromOwnToxIPv6(const Data &data) noexcept {
 
 	return false;
 }
+
+bool TunInterface::isAddrspaceUnused(uint8_t addrSpace) {
+	std::list<std::array<uint8_t, 4>> usedIps = getUsedIp4Addresses();
+
+	for (const auto &addr : usedIps) {
+		Logger::debug(
+				"Address ",
+				(int)addr[0], ".",
+				(int)addr[1], ".",
+				(int)addr[2], ".",
+				(int)addr[3], ".",
+				" is in use"
+		);
+		if (addr[0] != 192 || addr[1] != 168) continue;
+		if (addr[2] == addrSpace) return false;
+	}
+
+	return true;
+}
+

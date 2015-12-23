@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <ifaddrs.h>
 #include <fcntl.h>
 #include <cstring>
 #include <cerrno>
@@ -64,7 +65,7 @@ TunUnix::~TunUnix() {
 	if (fd >= 0) close(fd);
 }
 
-void TunUnix::setIp(const uint8_t postfix) noexcept {
+void TunUnix::setIp(uint8_t subnet, uint8_t postfix) noexcept {
 	struct ifreq ifr = {};
 	struct sockaddr_in sai = {};
 	in_addr_t in_addr = {};
@@ -72,7 +73,7 @@ void TunUnix::setIp(const uint8_t postfix) noexcept {
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ);
 
-	in_addr = inet_addr(ipv4FromPostfix(postfix).c_str());
+	in_addr = inet_addr(ipv4FromPostfix(subnet, postfix).c_str());
 	sai.sin_family = AF_INET;
 	sai.sin_addr.s_addr = in_addr;
 	memcpy(&ifr.ifr_addr, &sai, sizeof(struct sockaddr));
@@ -80,7 +81,7 @@ void TunUnix::setIp(const uint8_t postfix) noexcept {
 	if (ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
 		const char *errStr = std::strerror(errno);
 		Logger::error("Setting ip with ioctl failed: ", errStr);
-		Logger::error("Please set IPv4 to ", ipv4FromPostfix(postfix), " manually");
+		Logger::error("Please set IPv4 to ", ipv4FromPostfix(subnet, postfix), " manually");
 	}
 
 	in_addr = inet_addr("255.255.255.0");
@@ -117,6 +118,31 @@ void TunUnix::setIp(const uint8_t postfix) noexcept {
 	}
 
 	close(fd);
+}
+
+std::list<std::array<uint8_t, 4>> TunUnix::getUsedIp4Addresses() {
+	std::list<std::array<uint8_t, 4>> list;
+	struct ifaddrs *ifaddr;
+	if (getifaddrs(&ifaddr) == -1) {
+		const char *errStr = std::strerror(errno);
+		throw ToxTunError(Logger::concat("Can't get used IP addresses: ", errStr));
+	}
+
+	for (struct ifaddrs *ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr == nullptr) continue;
+		if (ifa->ifa_addr->sa_family != AF_INET) continue;
+
+		struct in_addr *a = &(reinterpret_cast<sockaddr_in*>(ifa->ifa_addr)->sin_addr);
+		uint8_t *tmp = reinterpret_cast<uint8_t*>(a);
+
+		std::array<uint8_t, 4> addr;
+		for (size_t i = 0; i < 4; ++i) addr[i] = tmp[i];
+
+		list.push_back(addr);
+	}
+
+	freeifaddrs(ifaddr);
+	return list;
 }
 
 void TunUnix::shutdown() {

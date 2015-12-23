@@ -76,10 +76,11 @@ Data Data::fromTunData(const uint8_t *buffer, size_t len) {
 	return data;
 }
 
-Data Data::fromIpPostfix(uint8_t postfix) noexcept {
-	Data data(2);
-	data.data->at(1) = postfix;
-	data.setToxHeader(PacketId::IP);
+Data Data::fromIpPostfix(uint8_t subnet, uint8_t postfix) noexcept {
+	Data data(3);
+	data.data->at(1) = subnet;
+	data.data->at(2) = postfix;
+	data.setToxHeader(PacketId::IpProposal);
 
 	return data;
 }
@@ -131,11 +132,23 @@ size_t Data::getToxDataLen() const noexcept {
 }
 
 uint8_t Data::getIpPostfix() const {
-	if (getToxHeader() != PacketId::IP) {
+	if (getToxHeader() != PacketId::IpProposal) {
 		//This should never happen
 		throw ToxTunError("Requesting IP from a non IP Packet");
 	}
-	if (data->size() != 2) {
+	if (data->size() != 3) {
+		throw ToxTunError("Ip Packet has invalid size");
+	}
+
+	return data->at(2);
+}
+
+uint8_t Data::getIpSubnet() const {
+	if (getToxHeader() != PacketId::IpProposal) {
+		//This should never happen
+		throw ToxTunError("Requesting IP from a non IP Packet");
+	}
+	if (data->size() != 3) {
 		throw ToxTunError("Ip Packet has invalid size");
 	}
 

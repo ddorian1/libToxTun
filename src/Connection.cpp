@@ -31,7 +31,8 @@ Connection::Connection(uint32_t friendNumber, ToxTunCore &toxTunCore, bool initi
 			State::OwnRequestPending : State::FriendsRequestPending
 	),
 	connectedFriend(friendNumber),
-	nextFragmentIndex(0)
+	nextFragmentIndex(0),
+	subnet(-1)
 {
 	if (initiateConnection)
 		sendConnectionRequest();
@@ -44,6 +45,7 @@ Connection::~Connection() {
 			break;
 		case State::OwnRequestPending:
 		case State::ExpectingIpPacket:
+		case State::ExpectingIpConfirmation:
 			resetConnection();
 			break;
 		case State::Connected:
@@ -86,8 +88,14 @@ void Connection::handleData(const Data &data) noexcept {
 		case Data::PacketId::ConnectionReset:
 			handleConnectionReset();
 			break;
-		case Data::PacketId::IP:
-			setIp(data);
+		case Data::PacketId::IpProposal:
+			handleIpProposal(data);
+			break;
+		case Data::PacketId::IpAccept:
+			handleIpAccepted();
+			break;
+		case Data::PacketId::IpReject:
+			handleIpRejected();
 			break;
 		case Data::PacketId::Data:
 			sendToTun(data);
@@ -151,25 +159,11 @@ void Connection::handleConnectionAccepted() noexcept {
 		return;
 	}
 
-	//TODO negotiate IP
-	Logger::debug("Sending IP postfix ", 2, " to friend ", connectedFriend);
-	Data data(Data::fromIpPostfix(2));
-	try {
-		sendToTox(data);
-	} catch (ToxTunError &error) {
-		resetAndDeleteConnection();
-		return;
-	}
-
-	tun.setIp(1);
-	state = State::Connected;
-	Logger::debug("Connected to ", connectedFriend);
-	toxTunCore.callback(
-			ToxTun::Event::ConnectionAccepted,
-			connectedFriend
-	);
+	Logger::debug("Start to negotiate Ip with friend ", connectedFriend);
+	state = State::ExpectingIpConfirmation;
+	sendIp();
 }
-	
+
 void Connection::handleConnectionRejected() noexcept {
 	if (state != State::OwnRequestPending) {
 		Logger::debug("Unexpected connectionReject received from ", connectedFriend);
@@ -212,24 +206,118 @@ void Connection::handleConnectionReset() noexcept {
 	deleteConnection();
 }
 
-void Connection::setIp(const Data &data) noexcept {
+void Connection::handleIpProposal(const Data &data) noexcept {
 	if (state != State::ExpectingIpPacket) {
-		Logger::debug("Received unexpected IpPacket from ", connectedFriend);
+		Logger::debug("Received unexpected IpProposal from ", connectedFriend);
 		resetAndDeleteConnection();
 		return;
 	}
 
-	uint8_t postfix;
+	uint8_t postfix, subnet;
 	try {
 		postfix = data.getIpPostfix();
-		tun.setIp(postfix);
-		Logger::debug("Ip set with postfix ", static_cast<int>(postfix));
+		subnet = data.getIpSubnet();
 	} catch (ToxTunError &error) {
-		Logger::error("Can't set Ip with postfix ", static_cast<int>(postfix));
+		Logger::error("Received invalid IpProposal from ", connectedFriend);
+		return;
+	}
+
+	bool unused;
+	try {
+		unused = tun.isAddrspaceUnused(subnet);
+	} catch (ToxTunError &error) {
+		Logger::error("Can't check if subnet is used, assuming it is not");
+		unused = true;
+	}
+
+	if (unused) {
+		Logger::debug("Address space ", static_cast<int>(subnet), " unused");
+		Data data = Data::fromPacketId(Data::PacketId::IpAccept);
+		try {
+			sendToTox(data);
+		} catch (ToxTunError &error) {
+			resetAndDeleteConnection();
+		}
+		setIp(subnet, postfix);
+	} else {
+		Logger::debug("Address space ", static_cast<int>(subnet), " used");
+		Data data = Data::fromPacketId(Data::PacketId::IpReject);
+		try {
+			sendToTox(data);
+		} catch (ToxTunError &error) {
+			resetAndDeleteConnection();
+		}
+	}
+}
+
+void Connection::setIp(uint8_t subnet, uint8_t postfix) noexcept {
+	try {
+		tun.setIp(subnet, postfix);
+		Logger::debug("Ip set to 192.168.",
+				static_cast<int>(subnet), ".",
+				static_cast<int>(postfix)
+		);
+	} catch (ToxTunError &error) {
+		Logger::error(
+				"Can't set Ip to 192.168.",
+				static_cast<int>(subnet), ".",
+				static_cast<int>(postfix)
+		);
 		return;
 	}
 
 	state = State::Connected;
+	toxTunCore.callback(
+			ToxTun::Event::ConnectionAccepted,
+			connectedFriend
+	);
+}
+
+void Connection::handleIpAccepted() noexcept {
+	if (state != State::ExpectingIpConfirmation) {
+		Logger::debug("Received unexpected IpAccept from ", connectedFriend);
+		resetAndDeleteConnection();
+		return;
+	}
+
+	setIp(subnet, 1);
+}
+
+void Connection::handleIpRejected() noexcept {
+	if (state != State::ExpectingIpConfirmation) {
+		Logger::debug("Received unexpected IpReject from ", connectedFriend);
+		resetAndDeleteConnection();
+		return;
+	}
+
+	sendIp();
+}
+
+void Connection::sendIp() noexcept {
+	bool unused = false;
+	while (!unused) {
+		++subnet;
+
+		try {
+			unused = tun.isAddrspaceUnused(subnet);
+		} catch (ToxTunError &error) {
+			Logger::error("Can't check if subnet is used, assuming it is not");
+			unused = true;
+		}
+
+		if (subnet == 256) {
+			Logger::error("No free Ip subnet avaible");
+			resetAndDeleteConnection();
+			return;
+		}
+	}
+
+	Data data = Data::fromIpPostfix(subnet, 2);
+	try {
+		sendToTox(data);
+	} catch (ToxTunError &error) {
+		resetAndDeleteConnection();
+	}
 }
 
 void Connection::sendToTun(const Data &data) noexcept {
@@ -305,7 +393,12 @@ void Connection::acceptConnection() {
 	state = State::ExpectingIpPacket;
 
 	Data data(Data::fromPacketId(Data::PacketId::ConnectionAccept));
-	sendToTox(data);
+	try {
+		sendToTox(data);
+	} catch (ToxTunError &error) {
+		resetAndDeleteConnection();
+		return;
+	}
 
 	Logger::debug("Accepting connection from ", connectedFriend);
 }
