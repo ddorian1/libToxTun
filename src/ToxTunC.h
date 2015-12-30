@@ -38,20 +38,20 @@ class Tox;
  * Possible events for the callback function
  * \sa toxtun_set_callback()
  */
-enum CCallbackEvents {
-	connection_requested,
-	connection_accepted,
-	connection_rejected,
-	connection_closed
+enum toxtun_event {
+	TOXTUN_CONNECTION_REQUESTED,
+	TOXTUN_CONNECTION_ACCEPTED,
+	TOXTUN_CONNECTION_REJECTED,
+	TOXTUN_CONNECTION_CLOSED
 };
 
 /**
  * Creates a new ToxTun class.
  * \sa ToxTun::ToxTun().
  * \param[in] tox Pointer to tox
- * \return Pointer to the created ToxTun class
+ * \return Pointer to the created ToxTun class, NULL in case of error
  */
-void *toxtun_new(Tox *tox);
+void* toxtun_new(Tox *tox);
 
 /**
  * Destructs ToxTun and frees the memory.
@@ -66,7 +66,7 @@ void toxtun_kill(void *toxtun);
 void toxtun_set_callback(
 		void *toxtun,
 		void (*cb)(
-			enum CCallbackEvents event,
+			enum toxtun_event event,
 			uint32_t friendNumber,
 			void *userData
 		),
@@ -81,15 +81,19 @@ void toxtun_iterate(void *toxtun);
 
 /**
  * Sends a connection request to friend.
+ * \return false in case of error, true otherwise
+ * \sa getLastError()
  * \sa ToxTun::sendConnectionRequest()
  */
-void toxtun_send_connection_request(void *toxtun, uint32_t friendNumber);
+bool toxtun_send_connection_request(void *toxtun, uint32_t friendNumber);
 
 /**
  * Accept connection request from friend.
+ * \return false in case of error, true otherwise
+ * \sa getLastError()
  * \sa ToxTun::acceptConnection()
  */
-void toxtun_accept_connection(void *toxtun, uint32_t friendNumber);
+bool toxtun_accept_connection(void *toxtun, uint32_t friendNumber);
 
 /**
  * Reject connection request.
@@ -101,7 +105,13 @@ void toxtun_reject_connection(void *toxtun, uint32_t friendNumber);
  * Close connection to friend.
  * \sa ToxTun::closeConnection()
  */
-void toxtun_close_connection(void *toxtun);
+void toxtun_close_connection(void *toxtun, uint32_t friendNumber);
+
+/**
+ * Get humen readable description of last error.
+ * \return Pointer to string, vaild until next call to get_last_error with the same toxtun instance as argument.
+ */
+const char* toxtun_get_last_error(void *toxtun);
 
 /**\}*/
 

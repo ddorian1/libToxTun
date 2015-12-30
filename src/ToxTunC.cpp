@@ -18,8 +18,14 @@
 #include "ToxTunC.h"
 #include "ToxTun.hpp"
 
+#include <map>
+#include <memory>
+#include <cstring>
+
+static std::map<void*, std::string> errorStrings;
+
 static void (*cCallback)(
-		enum CCallbackEvents event,
+		enum toxtun_event event,
 		uint32_t friendNumber,
 		void *userData
 ) = nullptr;
@@ -31,20 +37,20 @@ static void intermediateCallback(
 ) {
 	if (!cCallback) return;
 
-	enum CCallbackEvents cEvent;
+	enum toxtun_event cEvent;
 	
 	switch(event) {
 		case ToxTun::Event::ConnectionRequested:
-			cEvent = connection_requested;
+			cEvent = TOXTUN_CONNECTION_REQUESTED;
 			break;
 		case ToxTun::Event::ConnectionAccepted:
-			cEvent = connection_accepted;
+			cEvent = TOXTUN_CONNECTION_ACCEPTED;
 			break;
 		case ToxTun::Event::ConnectionRejected:
-			cEvent = connection_rejected;
+			cEvent = TOXTUN_CONNECTION_REJECTED;
 			break;
 		case ToxTun::Event::ConnectionClosed:
-			cEvent = connection_closed;
+			cEvent = TOXTUN_CONNECTION_CLOSED;
 			break;
 	}
 
@@ -58,14 +64,13 @@ void *toxtun_new(Tox *tox) {
 
 void toxtun_kill(void *toxtun) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	t->closeConnection();
 	delete t;
 }
 
 void toxtun_set_callback(
 		void *toxtun,
 		void (*cb)(
-			enum CCallbackEvents event,
+			enum toxtun_event event,
 			uint32_t friendNumber,
 			void *userData
 		),
@@ -82,14 +87,28 @@ void toxtun_iterate(void *toxtun) {
 }
 
 
-void toxtun_send_connection_request(void *toxtun, uint32_t friendNumber) {
+bool toxtun_send_connection_request(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	t->sendConnectionRequest(friendNumber);
+	try {
+		t->sendConnectionRequest(friendNumber);
+	} catch (ToxTunError &error) {
+		errorStrings[toxtun] = error.what();
+		return false;
+	}
+
+	return true;
 }
 
-void toxtun_accept_connection(void *toxtun, uint32_t friendNumber) {
+bool toxtun_accept_connection(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	t->acceptConnection(friendNumber);
+	try {
+		t->acceptConnection(friendNumber);
+	} catch (ToxTunError &error) {
+		errorStrings[toxtun] = error.what();
+		return false;
+	}
+
+	return true;
 }
 
 void toxtun_reject_connection(void *toxtun, uint32_t friendNumber) {
@@ -97,7 +116,38 @@ void toxtun_reject_connection(void *toxtun, uint32_t friendNumber) {
 	t->rejectConnection(friendNumber);
 }
 
-void toxtun_close_connection(void *toxtun) {
+void toxtun_close_connection(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
-	t->closeConnection();
+	t->closeConnection(friendNumber);
+}
+
+const char* toxtun_get_last_error(void *toxtun) {
+	static std::map<void*, std::unique_ptr<const char[]>> errorCStrings;
+
+	char *cString;
+	if (errorStrings.count(toxtun)) {
+		const size_t len = errorStrings.at(toxtun).size();
+
+		cString = new char[len + 1];
+		std::strncpy(cString, errorStrings.at(toxtun).c_str(), len + 1);
+		cString[len] = '\0';
+
+		errorStrings.erase(toxtun);
+	} else {
+		cString = new char[9];
+		std::strncpy(cString, "No error", 9);
+		cString[8] = '\0';
+	}
+
+	if (errorCStrings.count(toxtun)) {
+		errorCStrings.at(toxtun).reset(cString);
+	} else {
+		errorCStrings.emplace(
+				std::piecewise_construct,
+				std::forward_as_tuple(toxtun),
+				std::forward_as_tuple(cString)
+		);
+	}
+
+	return errorCStrings.at(toxtun).get();
 }

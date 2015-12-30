@@ -16,9 +16,9 @@
  */
 
 #include "Data.hpp"
-#include "Error.hpp"
 #include "Logger.hpp"
 #include "Tun.hpp"
+#include "ToxTun.hpp"
 
 #include <sstream>
 #include <tox/tox.h>
@@ -28,10 +28,10 @@ TunInterface::TunInterface(const Tox *tox)
 	toxUdpPort(tox_self_get_udp_port(tox, nullptr))
 {}
 
-std::string TunInterface::ipv4FromPostfix(const uint8_t postfix) {
+std::string TunInterface::ipv4FromPostfix(uint8_t subnet, uint8_t postfix) noexcept {
 	std::ostringstream ip;
 	
-	ip << "10.0.0." << static_cast<int>(postfix);
+	ip << "192.168." << static_cast<int>(subnet) << "." << static_cast<int>(postfix);
 	return ip.str();
 }
 
@@ -39,16 +39,21 @@ Data TunInterface::getData() {
 	Data data = getDataBackend();
 
 	if (isFromOwnTox(data)) {
-		Logger::debug("Dropping packet from own tox instance");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Dropping packet from own tox instance");
 	}
 
 	return data;
 }
 
-bool TunInterface::isFromOwnTox(const Data &data) {
+bool TunInterface::isFromOwnTox(const Data &data) noexcept {
 	if (data.getIpDataLen() < 14) return false;
-	const uint8_t *tmp = data.getIpData();
+
+	const uint8_t *tmp;
+	try {
+		tmp = data.getIpData();
+	} catch (ToxTunError &error) {
+		return false;
+	}
 
 	if (tmp[12] == 0x08 && tmp[13] == 0x00)
 		return isFromOwnToxIPv4(data);
@@ -59,11 +64,17 @@ bool TunInterface::isFromOwnTox(const Data &data) {
 	return false;
 }
 
-bool TunInterface::isFromOwnToxIPv4(const Data &data) {
+bool TunInterface::isFromOwnToxIPv4(const Data &data) noexcept {
 	constexpr uint8_t etherFrameOffset = 14;
 
 	if (data.getIpDataLen() < etherFrameOffset + 10u) return false;
-	const uint8_t *tmp = data.getIpData();
+
+	const uint8_t *tmp;
+	try {
+		tmp = data.getIpData();
+	} catch (ToxTunError &error) {
+		return false;
+	}
 
 	if (tmp[etherFrameOffset + 9] != 0x11) return false; //No UDP
 
@@ -83,12 +94,17 @@ bool TunInterface::isFromOwnToxIPv4(const Data &data) {
 	return false;
 }
 
-bool TunInterface::isFromOwnToxIPv6(const Data &data) {
+bool TunInterface::isFromOwnToxIPv6(const Data &data) noexcept {
 	constexpr uint8_t etherFrameOffset = 14;
 	uint8_t ipDataOffset = etherFrameOffset + 40;
 
 	if (data.getIpDataLen() < ipDataOffset) return false;
-	const uint8_t *tmp = data.getIpData();
+	const uint8_t *tmp;
+	try {
+		tmp = data.getIpData();
+	} catch (ToxTunError &error) {
+		return false;
+	}
 
 	//TODO This may also be another extension header, so deal with it
 	if (tmp[etherFrameOffset + 6] == 44u) { //Fragment
@@ -111,3 +127,23 @@ bool TunInterface::isFromOwnToxIPv6(const Data &data) {
 
 	return false;
 }
+
+bool TunInterface::isAddrspaceUnused(uint8_t addrSpace) {
+	std::list<std::array<uint8_t, 4>> usedIps = getUsedIp4Addresses();
+
+	for (const auto &addr : usedIps) {
+		Logger::debug(
+				"Address ",
+				(int)addr[0], ".",
+				(int)addr[1], ".",
+				(int)addr[2], ".",
+				(int)addr[3], ".",
+				" is in use"
+		);
+		if (addr[0] != 192 || addr[1] != 168) continue;
+		if (addr[2] == addrSpace) return false;
+	}
+
+	return true;
+}
+
