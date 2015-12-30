@@ -341,11 +341,15 @@ std::list<std::array<uint8_t, 4>> TunWin::getUsedIp4Addresses() {
 		while (uAddr) {
 			SOCKET_ADDRESS addr = uAddr->Address;
 			if (addr.lpSockaddr->sa_family == AF_INET) {
-				std::array<uint8_t, 4> a;
-				for (size_t i=0;i<4;++i) {
-					a[i] = addr.lpSockaddr->sa_data[i];
-				}
-				usedIps.push_back(a);
+				struct sockaddr_in *a = reinterpret_cast<struct sockaddr_in*>(
+						addr.lpSockaddr
+				);
+				std::array<uint8_t, 4> t;
+				t[0] = a->sin_addr.S_un.S_un_b.s_b1;
+				t[1] = a->sin_addr.S_un.S_un_b.s_b2;
+				t[2] = a->sin_addr.S_un.S_un_b.s_b3;
+				t[3] = a->sin_addr.S_un.S_un_b.s_b4;
+				usedIps.push_back(t);
 			}
 			uAddr = uAddr->Next;
 		}
