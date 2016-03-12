@@ -57,7 +57,6 @@ class TunUnix : public TunInterface {
 		virtual void setIp(uint8_t subnet, uint8_t postfix) noexcept final;
 		virtual bool dataPending() final;
 		virtual void sendData(const Data &data) final;
-		virtual bool isAddrspaceUnused(uint8_t addrSpace) final;
 };
 
 #endif //__unix
