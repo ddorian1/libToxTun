@@ -229,10 +229,9 @@ TunWin::~TunWin() {
 }
 
 void TunWin::setIp(uint8_t subnet, uint8_t postfix) noexcept {
-	DWORD len;
 	DWORD status;
 
-	uint32_t ip = 0xc0a80000 & (static_cast<uint32_t>(subnet) << 8) & postfix;
+	uint32_t ip = 0xc0a80000 | (static_cast<uint32_t>(subnet) << 8) | postfix;
 	uint32_t netmask = 0xFFFFFF00;
 
 	try {
@@ -252,7 +251,7 @@ void TunWin::setIp(uint8_t subnet, uint8_t postfix) noexcept {
 		Logger::debug("Set IP to ", ipv4FromPostfix(subnet, postfix));
 		ipIsSet = true;
 	} catch (ToxTunError &error) {
-		Logger::error("Can't get Adapter index. Pleas set IP to ", ipv4FromPostfix(subnet, postfix), "manually");
+		Logger::error("Can't set IP address. Pleas set IP to ", ipv4FromPostfix(subnet, postfix), " manually");
 	}
 
 	Logger::debug("Tun device successfully started");
@@ -305,7 +304,6 @@ ULONG TunWin::getAdapterIndex() const {
 
 void TunWin::unsetIp() {
 	DWORD status;
-	DWORD len;
 
 	if (ipIsSet) {
 		status = DeleteIPAddress(ipApiContext);
