@@ -126,6 +126,12 @@ class ToxTunCore : public ToxTun {
 		virtual void closeConnection(uint32_t friendNumber) noexcept final;
 
 		/**
+		 * Get current state of connection to friend.
+		 * \param[in] friendNumber friend of whom to get the connection state
+		 */
+		virtual ToxTun::ConnectionState getConnectionState(uint32_t friendNumber) noexcept final;
+
+		/**
 		 * Delete connection to friend.
 		 */
 		void deleteConnection(uint32_t friendNumber) noexcept;

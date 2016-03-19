@@ -45,6 +45,18 @@ enum toxtun_event {
 	TOXTUN_CONNECTION_CLOSED
 };
 
+
+/**
+ * Possible connection states
+ * \sa toxtun_get_connection_state()
+ */
+enum toxtun_connection_state {
+	TOXTUN_CONNECTION_STATE_CONNECTED,
+	TOXTUN_CONNECTION_STATE_DISCONNECTED,
+	TOXTUN_CONNECTION_STATE_RINGING_AT_FRIEND,
+	TOXTUN_CONNECTION_STATE_FRIEND_IS_RINGING
+};
+
 /**
  * Creates a new ToxTun class.
  * \sa ToxTun::ToxTun().
@@ -106,6 +118,11 @@ void toxtun_reject_connection(void *toxtun, uint32_t friendNumber);
  * \sa ToxTun::closeConnection()
  */
 void toxtun_close_connection(void *toxtun, uint32_t friendNumber);
+
+/**
+ * Get current state of connection to friend.
+ */
+enum toxtun_connection_state toxtun_get_connection_state(void *toxtun, uint32_t friendNumber);
 
 /**
  * Get humen readable description of last error.

@@ -121,6 +121,26 @@ void toxtun_close_connection(void *toxtun, uint32_t friendNumber) {
 	t->closeConnection(friendNumber);
 }
 
+enum toxtun_connection_state toxtun_get_connection_state(void *toxtun, uint32_t friendNumber) {
+	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
+	switch (t->getConnectionState(friendNumber)) {
+		case ToxTun::ConnectionState::Connected:
+			return TOXTUN_CONNECTION_STATE_CONNECTED;
+			break;
+		case ToxTun::ConnectionState::Disconnected:
+			return TOXTUN_CONNECTION_STATE_DISCONNECTED;
+			break;
+		case ToxTun::ConnectionState::RingingAtFriend:
+			return TOXTUN_CONNECTION_STATE_RINGING_AT_FRIEND;
+			break;
+		case ToxTun::ConnectionState::FriendIsRinging:
+			return TOXTUN_CONNECTION_STATE_FRIEND_IS_RINGING;
+			break;
+		default:
+			return TOXTUN_CONNECTION_STATE_DISCONNECTED;
+	}
+}
+
 const char* toxtun_get_last_error(void *toxtun) {
 	static std::map<void*, std::unique_ptr<const char[]>> errorCStrings;
 

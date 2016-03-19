@@ -21,6 +21,7 @@
 /** \file */
 
 #include "Tun.hpp"
+#include "ToxTun.hpp"
 
 #include <list>
 #include <map>
@@ -37,7 +38,8 @@ class ToxTunCore;
 class Connection {
 	private:
 		/**
-		 * Possible States
+		 * Possible states
+		 * This states are only used inside this class
 		 */
 		enum class State {
 			OwnRequestPending, 
@@ -227,6 +229,11 @@ class Connection {
 				Tox *tox,
 				uint8_t *nextFragmentIndex = nullptr
 		);
+
+		/**
+		 * Get current state of connection to friend.
+		 */
+		ToxTun::ConnectionState getConnectionState() noexcept;
 };
 
 #endif //TOX_TUN_CONNECTION_HPP

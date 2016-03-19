@@ -18,11 +18,15 @@
 #include "ToxTun.hpp"
 #include "Logger.hpp"
 
-ToxTunError::ToxTunError(const std::string &string) noexcept 
+ToxTunError::ToxTunError(const std::string &string, bool silent) noexcept 
 : 
 	string(string)
 {
-	Logger::error(string);
+	if (silent) {
+		Logger::debug(string);
+	} else {
+		Logger::error(string);
+	}
 }
 
 const char* ToxTunError::what() const noexcept {

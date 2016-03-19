@@ -43,6 +43,7 @@ ToxTunCore::ToxTunCore(Tox *tox) noexcept
 
 ToxTunCore::~ToxTunCore() {
 	tox_callback_friend_lossless_packet(tox, nullptr, nullptr);
+	tox_callback_friend_lossy_packet(tox, nullptr, nullptr);
 }
 
 void ToxTunCore::toxPacketCallback(
@@ -63,10 +64,16 @@ void ToxTunCore::handleData(const Data &data, uint32_t friendNumber) noexcept {
 		return;
 	}
 
-	if (data.getToxHeader() == Data::PacketId::ConnectionRequest) {
-		handleConnectionRequest(friendNumber);
-	} else {
-		Connection::resetConnection(friendNumber, tox);
+	switch (data.getToxHeader()) {
+		case Data::PacketId::ConnectionRequest:
+			handleConnectionRequest(friendNumber);
+			break;
+		case Data::PacketId::ConnectionReset:
+			Logger::debug("Received ConnectionReset from not connected friend, ignoring");
+			break;
+		default:
+			Logger::debug("Received packet from not connected friend");
+			Connection::resetConnection(friendNumber, tox);
 	}
 }
 
@@ -147,6 +154,14 @@ void ToxTunCore::rejectConnection(uint32_t friendNumber) noexcept {
 void ToxTunCore::closeConnection(uint32_t friendNumber) noexcept {
 	deleteConnection(friendNumber);
 	Logger::debug("Closing connection to ", friendNumber);
+}
+
+ToxTun::ConnectionState ToxTunCore::getConnectionState(uint32_t friendNumber) noexcept {
+	if (!connections.count(friendNumber)) {
+		return ToxTun::ConnectionState::Disconnected;
+	} else {
+		return connections.at(friendNumber).getConnectionState();
+	}
 }
 
 void ToxTunCore::deleteConnection(uint32_t friendNumber) noexcept {

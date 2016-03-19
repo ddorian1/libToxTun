@@ -58,6 +58,17 @@ class ToxTun {
 		};
 
 		/**
+		 * Possible connection states
+		 * \sa getConnectionState
+		 */
+		enum class ConnectionState {
+			Connected,
+			RingingAtFriend,
+			FriendIsRinging,
+			Disconnected
+		};
+
+		/**
 		 * Type for the callback function
 		 * \sa setCallback()
 		 */
@@ -127,6 +138,12 @@ class ToxTun {
 		 * the tun interface.
 		 */
 		virtual void closeConnection(uint32_t friendNumber) noexcept = 0;
+
+		/**
+		 * Get current state of connection to friend.
+		 * \param[in] friendNumber friend of whom to get the connection state
+		 */
+		virtual ConnectionState getConnectionState(uint32_t friendNumber) noexcept = 0;
 };
 
 /**
@@ -137,7 +154,7 @@ class ToxTunError : public std::exception {
 		std::string string;
 
 	public:
-		ToxTunError(const std::string &string) noexcept;
+		ToxTunError(const std::string &string, bool silent = false) noexcept;
 		virtual const char* what() const noexcept;
 };
 

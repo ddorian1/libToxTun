@@ -432,3 +432,25 @@ void Connection::handleFragment(const Data &data) noexcept {
 		Logger::debug("fragments[", connectedFriend, "].size() == ", fragments.size());
 	}
 }
+
+ToxTun::ConnectionState Connection::getConnectionState() noexcept {
+	switch (state) {
+		case State::Connected:
+			return ToxTun::ConnectionState::Connected;
+			break;
+		case State::Deleting:
+			return ToxTun::ConnectionState::Disconnected;
+			break;
+		case State::FriendsRequestPending:
+		case State::ExpectingIpPacket:
+			return ToxTun::ConnectionState::FriendIsRinging;
+			break;
+		case State::OwnRequestPending:
+		case State::ExpectingIpConfirmation:
+			return ToxTun::ConnectionState::RingingAtFriend;
+			break;
+		default:
+			return ToxTun::ConnectionState::Disconnected;
+			break;
+	}
+}

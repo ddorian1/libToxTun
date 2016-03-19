@@ -39,7 +39,7 @@ Data TunInterface::getData() {
 	Data data = getDataBackend();
 
 	if (isFromOwnTox(data)) {
-		throw ToxTunError("Dropping packet from own tox instance");
+		throw ToxTunError("Dropping packet from own tox instance", true);
 	}
 
 	return data;
