@@ -18,8 +18,8 @@
 #ifdef _WIN32
 
 #include "TunWin.hpp"
+#include "ToxTun.hpp"
 #include "Logger.hpp"
-#include "Error.hpp"
 #include "Data.hpp"
 
 #include <iphlpapi.h>
@@ -50,8 +50,7 @@ TunWin::TunWin(const Tox *tox)
 	);
 
 	if (status != ERROR_SUCCESS) {
-		Logger::error("Can't open registry key ", ADAPTER_KEY);
-		throw Error(Error::Err::Permanent);
+		throw ToxTunError(Logger::concat("Can't open registry key ", ADAPTER_KEY));
 	}
 
 	while (true) {
@@ -77,8 +76,7 @@ TunWin::TunWin(const Tox *tox)
 		if (status == ERROR_NO_MORE_ITEMS) break;
 
 		if (status != ERROR_SUCCESS) {
-			Logger::error("Error while reading registry subkeys of ", ADAPTER_KEY);
-			throw Error(Error::Err::Permanent);
+			throw ToxTunError(Logger::concat("Error while reading registry subkeys of ", ADAPTER_KEY));
 		}
 
 		unitString = ADAPTER_KEY;
@@ -172,21 +170,8 @@ TunWin::TunWin(const Tox *tox)
 	}
 
 	if (handle == INVALID_HANDLE_VALUE) {
-		Logger::error("Can't open a tun device");
-		throw Error(Error::Err::Permanent);
+		throw ToxTunError("Can't open a tun device");
 	}
-}
-
-TunWin::~TunWin() {
-	if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
-}
-
-void TunWin::setIp(const uint8_t postfix) {
-	DWORD len;
-	DWORD status;
-
-	uint32_t ip = 0x0a000000 + postfix;
-	uint32_t netmask = 0xFFFFFF00;
 
 	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
 			FILE_DEVICE_UNKNOWN,
@@ -208,9 +193,46 @@ void TunWin::setIp(const uint8_t postfix) {
 	);
 
 	if (!status) {
-		Logger::error("Can't set tun device to connected");
-		throw Error(Error::Err::Critical);
+		throw ToxTunError("Can't set tun device to connected");
 	}
+}
+
+TunWin::~TunWin() {
+	unsetIp();
+
+	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
+			FILE_DEVICE_UNKNOWN,
+			6,
+			METHOD_BUFFERED,
+			FILE_ANY_ACCESS
+	);
+
+	ULONG f = false;
+	DWORD len;
+	DWORD status = DeviceIoControl(
+			handle,
+			TAP_WIN_IOCTL_SET_MEDIA_STATUS,
+			&f,
+			sizeof(f),
+			&f,
+			sizeof(f),
+			&len, 
+			nullptr
+	);
+
+	if (!status) {
+		Logger::error("Can't set tun device to disconnected");
+		return;
+	}
+
+	if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+}
+
+void TunWin::setIp(uint8_t subnet, uint8_t postfix) noexcept {
+	DWORD status;
+
+	uint32_t ip = 0xc0a80000 | (static_cast<uint32_t>(subnet) << 8) | postfix;
+	uint32_t netmask = 0xFFFFFF00;
 
 	try {
 		DWORD index = getAdapterIndex();
@@ -224,12 +246,12 @@ void TunWin::setIp(const uint8_t postfix) {
 				&NTEInstance
 		);
 
-		if (status != NO_ERROR) throw Error(Error::Err::Temp);
+		if (status != NO_ERROR) throw ToxTunError("AddIpAddress failed");
 
-		Logger::debug("Set IP to 10.0.0.", (int)postfix);
+		Logger::debug("Set IP to ", ipv4FromPostfix(subnet, postfix));
 		ipIsSet = true;
-	} catch (Error &err) {
-		Logger::error("Can't get Adapter index. Pleas set IP to 10.0.0.", (int)postfix, "manually");
+	} catch (ToxTunError &error) {
+		Logger::error("Can't set IP address. Pleas set IP to ", ipv4FromPostfix(subnet, postfix), " manually");
 	}
 
 	Logger::debug("Tun device successfully started");
@@ -253,17 +275,15 @@ ULONG TunWin::getAdapterIndex() const {
 	ULONG size = 0;
 	status = GetAdaptersInfo(nullptr, &size);
 	if (status != ERROR_BUFFER_OVERFLOW) {
-		Logger::debug("GetAdapterInfo (size) failed");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("GetAdapterInfo (size) failed");
 	}
 
 	IP_ADAPTER_INFO *adapterInfo = new IP_ADAPTER_INFO[size];
-	if (!adapterInfo) throw Error(Error::Err::Temp);
+	if (!adapterInfo) throw ToxTunError("GetAdapterIndo failed");
 
 	status = GetAdaptersInfo(adapterInfo, &size);
 	if (status != NO_ERROR) {
-		Logger::debug("GetAdapterInfo failed");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("GetAdapterInfo failed");
 	}
 
 	IP_ADAPTER_INFO *tmp = adapterInfo;
@@ -278,14 +298,12 @@ ULONG TunWin::getAdapterIndex() const {
 		return index;
 	}
 
-	Logger::debug("No matching adapter in IP_ADAPTER_INFO");
 	delete[] adapterInfo;
-	throw Error(Error::Err::Temp);
+	throw ToxTunError("No matching adapter in IP_ADAPTER_INFO");
 }
 
 void TunWin::unsetIp() {
 	DWORD status;
-	DWORD len;
 
 	if (ipIsSet) {
 		status = DeleteIPAddress(ipApiContext);
@@ -295,31 +313,49 @@ void TunWin::unsetIp() {
 		ipIsSet = false;
 	}
 
-	DWORD TAP_WIN_IOCTL_SET_MEDIA_STATUS = CTL_CODE(
-			FILE_DEVICE_UNKNOWN,
-			6,
-			METHOD_BUFFERED,
-			FILE_ANY_ACCESS
-	);
+	Logger::debug("Tun shutted down");
+}
 
-	ULONG f = false;
-	status = DeviceIoControl(
-			handle,
-			TAP_WIN_IOCTL_SET_MEDIA_STATUS,
-			&f,
-			sizeof(f),
-			&f,
-			sizeof(f),
-			&len, 
-			nullptr
-	);
-
-	if (!status) {
-		Logger::error("Can't set tun device to disconnected");
-		return;
+std::list<std::array<uint8_t, 4>> TunWin::getUsedIp4Addresses() {
+	ULONG size = 0;
+	DWORD status = GetAdaptersAddresses(AF_INET, 0, nullptr, nullptr, &size);
+	if (status != ERROR_BUFFER_OVERFLOW) {
+		throw ToxTunError("GetAdapterAddresses (size) failed");
 	}
 
-	Logger::debug("Tun shutted down");
+	IP_ADAPTER_ADDRESSES *adapterAddresses = new IP_ADAPTER_ADDRESSES[size];
+	if (!adapterAddresses) throw ToxTunError("GetAdapterAddresses failed");
+
+	status = GetAdaptersAddresses(AF_INET, 0, nullptr, adapterAddresses, &size);
+	if (status != NO_ERROR) {
+		throw ToxTunError("GetAdapterAddresses failed");
+	}
+
+	std::list<std::array<uint8_t, 4>> usedIps;
+
+	IP_ADAPTER_ADDRESSES *tmp = adapterAddresses;
+	while (tmp) {
+		IP_ADAPTER_UNICAST_ADDRESS *uAddr = tmp->FirstUnicastAddress;
+		while (uAddr) {
+			SOCKET_ADDRESS addr = uAddr->Address;
+			if (addr.lpSockaddr->sa_family == AF_INET) {
+				struct sockaddr_in *a = reinterpret_cast<struct sockaddr_in*>(
+						addr.lpSockaddr
+				);
+				std::array<uint8_t, 4> t;
+				t[0] = a->sin_addr.S_un.S_un_b.s_b1;
+				t[1] = a->sin_addr.S_un.S_un_b.s_b2;
+				t[2] = a->sin_addr.S_un.S_un_b.s_b3;
+				t[3] = a->sin_addr.S_un.S_un_b.s_b4;
+				usedIps.push_back(t);
+			}
+			uAddr = uAddr->Next;
+		}
+		tmp = tmp->Next;
+	}
+
+	delete[] adapterAddresses;
+	return usedIps;
 }
 
 bool TunWin::dataPending() {
@@ -338,8 +374,7 @@ bool TunWin::dataPending() {
 		case ReadState::Ready:
 			return true;
 		default:
-			Logger::error("Unhandled state in TunWin::dataPending");
-			throw(Error(Error::Err::Critical));
+			throw ToxTunError("Unhandled state in TunWin::dataPending");
 	}
 }
 
@@ -362,8 +397,7 @@ void TunWin::queueRead() {
 		Logger::debug("ReadFile queued");
 		readState = ReadState::Queued;
 	} else {
-		Logger::error("ReadFile failed");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("ReadFile failed");
 	}
 }
 
@@ -381,15 +415,13 @@ void TunWin::setBytesRead() {
 		Logger::debug("setBytesRead called while read is still pending. Trying to fix this...");
 		readState = ReadState::Queued;
 	} else {
-		Logger::error("Error while calling GetOverlappedResult");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Error while calling GetOverlappedResult");
 	}
 }
 
 Data TunWin::getDataBackend() {
 	if (readState != ReadState::Ready) {
-		Logger::error("Wrong readState in getData!");
-		throw Error(Error::Err::Temp);
+		throw ToxTunError("Wrong readState in getData");
 	}
 
 	readState = ReadState::Idle;
@@ -419,8 +451,7 @@ void TunWin::sendData(const Data &data) {
 		overlappedWrite.pop_front();
 	} else {
 		if (GetLastError() != ERROR_IO_PENDING) {
-			Logger::error("Writing to tun failed");
-			throw Error(Error::Err::Temp);
+			throw ToxTunError("Writing to tun failed");
 		}
 	}
 

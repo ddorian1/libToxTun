@@ -1,8 +1,9 @@
-AC_INIT([libtoxtun],[0.0.1],[mail@jschwab.org])
+AC_INIT([libtoxtun],[0.0.2],[mail@jschwab.org])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR([src/ToxTun.hpp])
 
 AM_INIT_AUTOMAKE([1.10 no-define foreign])
+AM_SILENT_RULES([yes])
 AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs

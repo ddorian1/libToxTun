@@ -43,7 +43,9 @@ class Data {
 			ConnectionReject = 162,
 			ConnectionClose = 163,
 			ConnectionReset = 164,
-			IP = 165,
+			IpProposal = 165,
+			IpAccept = 166,
+			IpReject = 167,
 			Data = 200,
 			Fragment = 201
 		};
@@ -70,15 +72,10 @@ class Data {
 		bool toxHeaderSet;
 
 		/**
-		 * The index for the next splitted data packet
-		 */
-		static uint8_t splittedDataIndex;
-
-		/**
 		 * Private Constructor.
 		 * Use the static members to create an instance.
 		 */
-		Data(size_t len);
+		Data(size_t len) noexcept ;
 
 	public:
 		/**
@@ -91,7 +88,7 @@ class Data {
 		 * Create class from data received via Tox.
 		 * len must be the size of buffer.
 		 */
-		static Data fromToxData(const uint8_t *buffer, size_t len);
+		static Data fromToxData(const uint8_t *buffer, size_t len) noexcept;
 
 		/**
 		 * Create class from list of fragments received via Tox
@@ -102,18 +99,18 @@ class Data {
 		 * Create class from an ip postfix.
 		 * Sets the header to Data::PacketId::IP.
 		 */
-		static Data fromIpPostfix(uint8_t postfix);
+		static Data fromIpPostfix(uint8_t subnet, uint8_t postfix) noexcept;
 
 		/**
 		 * Create class from an Data::PacketId.
 		 * This only sets the header without any additional data.
 		 */
-		static Data fromPacketId(PacketId id);
+		static Data fromPacketId(PacketId id) noexcept;
 
 		/**
 		 * Changes the header to the given one.
 		 */
-		void setToxHeader(PacketId id);
+		void setToxHeader(PacketId id) noexcept;
 
 		/**
 		 * Returns the header.
@@ -129,7 +126,7 @@ class Data {
 		/**
 		 * Gets the size of the buffer returned by getIpData().
 		 */
-		size_t getIpDataLen() const;
+		size_t getIpDataLen() const noexcept;
 
 		/**
 		 * Gets the data to send via tox.
@@ -140,29 +137,45 @@ class Data {
 		/**
 		 * Gets the size of the buffer returned by getToxData().
 		 */
-		size_t getToxDataLen() const;
+		size_t getToxDataLen() const noexcept;
 
 		/**
 		 * Gets the ip postfix of a ip packet received via tox.
-		 * Throws an error, if header isn't Data::PacketId::IP
+		 * Throws an error, if header isn't Data::PacketId::Ip
 		 * or is otherwise invalid.
 		 */
 		uint8_t getIpPostfix() const;
 
 		/**
+		 * Gets the ip subnet of a ip packet received via tox.
+		 * Throws an error, if header isn't Data::PacketId::Ip
+		 * or is otherwise invalid.
+		 */
+		uint8_t getIpSubnet() const;
+
+		/**
+		 * Whether or not the fragment seems to be valid.
+		 * \sa getSplittedDataIndex()
+		 * \sa getFragmentsCount()
+		 */
+		bool isValidFragment() const noexcept;
+
+		/**
 		 * Gets the set index from a fragment packet.
+		 * Never throws if isValidFragment returns true.
 		 */
 		uint8_t getSplittedDataIndex() const;
 
 		/**
 		 * Gets the count of fragments in the set from a fragment packet.
+		 * Never throws if isValidFragment returns true.
 		 */
 		uint8_t getFragmentsCount() const;
 
 		/**
 		 * Gets a list of splitted packegs that fit TOX_MAX_CUSTOM_PACKAGE_SIZE.
 		 */
-		std::forward_list<Data> getSplitted() const;
+		std::forward_list<Data> getSplitted(uint8_t splittedDataIndex) const;
 
 		/**
 		 * Gets the type of connection the packet must be send over via tox.

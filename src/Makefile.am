@@ -8,14 +8,16 @@ libtoxtun_la_HEADERS = \
 
 libtoxtun_la_SOURCES = \
 	$(libtoxtun_la_HEADERS) \
+	Connection.cpp \
+	Connection.hpp \
 	Data.cpp \
 	Data.hpp \
-	Error.hpp \
 	Logger.hpp \
 	ToxTun.cpp \
 	ToxTunC.cpp \
 	ToxTunCore.cpp \
 	ToxTunCore.hpp \
+	ToxTunError.cpp \
 	Tun.cpp \
 	Tun.hpp \
 	TunUnix.cpp \

@@ -15,26 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ERROR_HPP
-#define ERROR_HPP
+#include "ToxTun.hpp"
+#include "Logger.hpp"
 
-/**
- * Error class for internal use.
- */
-class Error {
-	public:
-		enum class Err {
-			Permanent,
-			Critical,
-			Temp
-		};
+ToxTunError::ToxTunError(const std::string &string, bool silent) noexcept 
+: 
+	string(string)
+{
+	if (silent) {
+		Logger::debug(string);
+	} else {
+		Logger::error(string);
+	}
+}
 
-	private:
-		const Err err;
-
-	public:
-		Error(Err err) : err(err) {};
-		Err get() const {return err;};
-};
-
-#endif //ERROR_HPP
+const char* ToxTunError::what() const noexcept {
+	return string.c_str();
+}

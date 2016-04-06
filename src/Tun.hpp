@@ -23,6 +23,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <list>
+#include <array>
 
 class Data;
 class Tox;
@@ -37,27 +39,27 @@ class TunInterface {
 		/**
 		 * Check wether or not an ethernet frame is send from the own tox instance
 		 */
-		bool isFromOwnTox(const Data &data);
+		bool isFromOwnTox(const Data &data) noexcept;
 
 		/**
 		 * Called by isFromOwnTox()
 		 * \sa isFromOwnTox()
 		 */
-		bool isFromOwnToxIPv4(const Data &data);
+		bool isFromOwnToxIPv4(const Data &data) noexcept;
 
 		/**
 		 * Called by isFromOwnTox()
 		 * \sa isFromOwnTox()
 		 */
-		bool isFromOwnToxIPv6(const Data &data);
+		bool isFromOwnToxIPv6(const Data &data) noexcept;
 
 	protected:
 		/**
 		 * Generate IPv4 Address from postfix.
 		 * \param[in] postfix postfix to use
-		 * \return string of form "10.0.0.[postfix]"
+		 * \return string of form "192.168.<subnet>.<postfix>"
 		 */
-		static std::string ipv4FromPostfix(const uint8_t postfix);
+		static std::string ipv4FromPostfix(uint8_t subnet, uint8_t postfix) noexcept;
 
 		/**
 		 * Get data from tun interface.
@@ -66,18 +68,18 @@ class TunInterface {
 		 */
 		virtual Data getDataBackend() = 0;
 
+		virtual std::list<std::array<uint8_t, 4>> getUsedIp4Addresses() = 0;
+
 	public:
 		TunInterface(const Tox *tox);
+
+		TunInterface(const TunInterface&) = delete; /**< Deleted */
+		TunInterface& operator=(const TunInterface&) = delete; /**< Deleted */
 
 		/**
 		 * Set IPv4 and IPv6 of tun interface
 		 */
-		virtual void setIp(const uint8_t postfix) = 0;
-
-		/**
-		 * Bring tun interface down
-		 */
-		virtual void unsetIp() = 0;
+		virtual void setIp(uint8_t subnet, uint8_t postfix) noexcept = 0;
 
 		/**
 		 * Indicates wether or not there is pending data to be
@@ -98,6 +100,12 @@ class TunInterface {
 		 * Throws an error in case of failure.
 		 */
 		virtual void sendData(const Data &data) = 0;
+
+		/**
+		 * Wether or not the addressspace 192.168.<addrSpace>.0 is allready used.
+		 * Throws an error if the addresses can't be determined.
+		 */
+		bool isAddrspaceUnused(uint8_t addrSpace);
 };
 
 #ifdef __unix
