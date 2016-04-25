@@ -57,10 +57,16 @@ case $host_os in
 	;;
 esac
 
+# Check if building tests
+AM_CONDITIONAL([COND_TEST], [test "$test" = yes])
+AM_COND_IF([COND_TEST], [AX_BOOST_BASE])
+AM_COND_IF([COND_TEST], [AX_BOOST_UNIT_TEST_FRAMEWORK])
+AM_COND_IF([COND_TEST], [AX_BOOST_ASIO])
+
 # Distribute additional compiler and linker flags
 AC_SUBST([AM_CXXFLAGS])
 AC_SUBST([AM_LDFLAGS])
 
 # Generate files
-AC_CONFIG_FILES([Makefile src/Makefile libtoxtun.pc])
+AC_CONFIG_FILES([Makefile src/Makefile test/Makefile libtoxtun.pc])
 AC_OUTPUT

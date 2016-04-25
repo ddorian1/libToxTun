@@ -1,6 +1,12 @@
 include aminclude.am
 
-SUBDIRS = src
+if COND_TEST
+MAYBE_TEST = test
+else
+MAYBE_TEST = 
+endif
+
+SUBDIRS = src $(MAYBE_TEST)
 
 ACLOCAL_AMFLAGS = -I m4
 
