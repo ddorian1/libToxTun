@@ -96,13 +96,13 @@ class Data {
 		static Data fromFragments(std::list<Data> &fragments);
 
 		/**
-		 * Create class from an ip postfix.
-		 * Sets the header to Data::PacketId::IP.
+		 * Create class from an ip subnet and postfix.
+		 * Sets the header to Data::PacketId::IpProposal.
 		 */
 		static Data fromIpPostfix(uint8_t subnet, uint8_t postfix) noexcept;
 
 		/**
-		 * Create class from an Data::PacketId.
+		 * Create class from a Data::PacketId.
 		 * This only sets the header without any additional data.
 		 */
 		static Data fromPacketId(PacketId id) noexcept;
