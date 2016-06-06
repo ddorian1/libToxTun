@@ -202,7 +202,7 @@ class Connection {
 		/**
 		 * This is doing the work.
 		 */
-		void iterate(std::chrono::duration<double> time) noexcept;
+		void iterate(std::chrono::milliseconds time) noexcept;
 
 		/**
 		 * Handles incoming packats

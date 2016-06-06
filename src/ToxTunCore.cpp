@@ -20,8 +20,6 @@
 #include "Logger.hpp"
 #include "Data.hpp"
 
-#include <chrono>
-
 ToxTunCore::ToxTunCore(Tox *tox) noexcept
 :
 	tox(tox),
@@ -85,12 +83,41 @@ void ToxTunCore::setCallback(ToxTun::CallbackFunction callback, void *userData) 
 void ToxTunCore::iterate() noexcept {
 	if (connections.empty()) return;
 
-	const auto timePerConnection = std::chrono::microseconds(
-			500 / connections.size() //Must be integer
+	const auto timeBegin = std::chrono::steady_clock::now();
+
+	const unsigned int intPerCon =
+		tox_iteration_interval(tox) / connections.size();
+	const std::chrono::milliseconds timePerConnection(
+			intPerCon >= 1 ? intPerCon : 1
 	);
 
 	for (auto &connection : connections)
 		connection.second.iterate(timePerConnection);
+
+	iterationTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - timeBegin
+	);
+}
+
+std::chrono::milliseconds ToxTunCore::iterationInterval() noexcept {
+	if (connections.empty()) {
+		return std::chrono::milliseconds(tox_iteration_interval(tox));
+	} else {
+		/*
+		 * We are assuming here (and in iterate()),
+		 * that tox_interation_interval() is returing 50ms as an lower limit
+		 * as it does at time of writing.
+		 *
+		 * TODO Maybe it would be a good idea to check if there is a busy
+		 * connection and decrease the returned time if so.
+		 */
+		const auto tmp = std::chrono::milliseconds(5) - iterationTime;
+		if (tmp.count() >= 0) {
+			return tmp;
+		} else {
+			return std::chrono::milliseconds::zero();
+		}
+	}
 }
 
 void ToxTunCore::handleConnectionRequest(uint32_t friendNumber) noexcept {

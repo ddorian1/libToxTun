@@ -42,6 +42,11 @@ class ToxTunCore : public ToxTun {
 		std::map<uint32_t, Connection> connections;
 
 		/**
+		 * Time last iterate has taken
+		 */
+		std::chrono::milliseconds iterationTime;
+
+		/**
 		 * User Data to be returned by the callback function
 		 */
 		void *callbackUserData;
@@ -104,6 +109,11 @@ class ToxTunCore : public ToxTun {
 		 * tox_iterate().
 		 */
 		virtual void iterate() noexcept final;
+
+		/**
+		 * Time till tox_iterate and iterate should be called the next time.
+		 */
+		virtual std::chrono::milliseconds iterationInterval() noexcept final;
 
 		/**
 		 * Sends an connection Request to the friend.

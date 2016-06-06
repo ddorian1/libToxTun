@@ -20,6 +20,7 @@
 
 /** \file */
 
+#include <chrono>
 #include <cstdint>
 #include <exception>
 #include <string>
@@ -116,6 +117,14 @@ class ToxTun {
 		 * tox_iterate().
 		 */
 		virtual void iterate() noexcept = 0;
+
+		/**
+		 * Time till tox_iterate and iterate should be called the next time.
+		 * For best performance, interate should be called after tox_interate
+		 * and the time to sleep should be retrived by this function
+		 * rather then tox_iteration_interval().
+		 */
+		virtual std::chrono::milliseconds iterationInterval() noexcept = 0;
 
 		/**
 		 * Sends an connection Request to the friend.

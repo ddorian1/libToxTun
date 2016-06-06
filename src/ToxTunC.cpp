@@ -86,6 +86,10 @@ void toxtun_iterate(void *toxtun) {
 	t->iterate();
 }
 
+unsigned int toxtun_iteration_interval(void *toxtun) {
+	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);
+	return t->iterationInterval().count();
+}
 
 bool toxtun_send_connection_request(void *toxtun, uint32_t friendNumber) {
 	ToxTun *t = reinterpret_cast<ToxTun *>(toxtun);

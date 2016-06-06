@@ -106,16 +106,13 @@ void Connection::handleData(const Data &data) noexcept {
 	}
 }
 
-void Connection::iterate(std::chrono::duration<double> time) noexcept {
-	const auto tStart = std::chrono::high_resolution_clock::now();
+void Connection::iterate(std::chrono::milliseconds time) noexcept {
+	const auto timeStart = std::chrono::steady_clock::now();
 	while(true) {
 		if (state != State::Connected || !tun.dataPending()) break;
 
-		const auto tNow = std::chrono::high_resolution_clock::now();
-		const auto tElapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
-				tNow - tStart
-		);
-		if (tElapsed > time) break;
+		const auto timeElapsed = std::chrono::steady_clock::now() - timeStart;
+		if (timeElapsed > time) break;
 
 		try {
 			sendToTox(tun.getData());

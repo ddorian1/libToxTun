@@ -86,10 +86,16 @@ void toxtun_set_callback(
 );
 
 /**
- * Do the work.
+ * Does the work.
  * \sa ToxTun::iterate()
  */
 void toxtun_iterate(void *toxtun);
+
+/**
+ * Time till tox_iterate and toxtun_iterate should be called the next time.
+ * \sa ToxTun::iterationInterval()
+ */
+unsigned int toxtun_iteration_interval(void *toxtun);
 
 /**
  * Sends a connection request to friend.
